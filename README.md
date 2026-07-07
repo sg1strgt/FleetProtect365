@@ -1,13 +1,8 @@
-# Fleet Protect 365 Revision 4
+# Fleet Protect 365 Revision 5
 
-Open `index.html` in a web browser.
+This version fixes the duplicate background text issue by using a clean hero background image only.
 
-Revision 4 updates:
-- Restored the original cinematic driver/photo background.
-- Removed duplicate background text and duplicate feature strip appearance.
-- Changed top nav to Dashboard Overview, Mobile Apps, Important Numbers, Traffic & Weather, Documents.
-- Removed Watch Platform Tour button.
-- Made top Request a Demo smaller.
-- Added Documents section.
-- Removed trailers and dollies from Company Dashboard sidebar.
-- Removed buttons below Documents, Reports, Alerts, and Users.
+## GitHub upload
+Upload all files in this folder to your repository, including the assets folder.
+
+Open `index.html` to preview locally.
