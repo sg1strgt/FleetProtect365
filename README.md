@@ -1,12 +1,13 @@
-# Fleet Protect 365 - Revision 3
+# Fleet Protect 365 Revision 4
 
-Open `index.html` in a browser.
+Open `index.html` in a web browser.
 
-Revision notes:
-- Restored cinematic driver-taking-photo hero background.
-- Removed logo next to company name.
-- Navigation: Dashboard, Mobile Apps, Important Numbers, Traffic & Weather.
-- Removed Company menu item.
-- Updated dashboard and mobile app wording per requested revisions.
-- Removed Company App box.
-- Login shows Not Authorized message only.
+Revision 4 updates:
+- Restored the original cinematic driver/photo background.
+- Removed duplicate background text and duplicate feature strip appearance.
+- Changed top nav to Dashboard Overview, Mobile Apps, Important Numbers, Traffic & Weather, Documents.
+- Removed Watch Platform Tour button.
+- Made top Request a Demo smaller.
+- Added Documents section.
+- Removed trailers and dollies from Company Dashboard sidebar.
+- Removed buttons below Documents, Reports, Alerts, and Users.
