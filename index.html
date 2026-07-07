@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fleet Protect 365 | Dashboard & Driver Compliance</title>
+  <style>
+    :root{--bg:#07070d;--panel:#11111b;--panel2:#171729;--text:#f7f4ff;--muted:#aaa6bd;--purple:#7c3cff;--pink:#c084fc;--line:rgba(255,255,255,.12);--good:#34d399;--warn:#facc15;--bad:#fb7185}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(180deg,#07070d,#0b0b14 50%,#07070d);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Arial,sans-serif}a{color:inherit;text-decoration:none}.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:17px 34px;background:rgba(7,7,13,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:.06em;white-space:nowrap}.brand img{width:48px;height:38px;object-fit:contain}.nav{display:flex;gap:20px;color:#e8e3f5;font-weight:750;font-size:14px;align-items:center}.nav a:hover{color:white}.actions{display:flex;gap:10px;align-items:center}.btn{border:1px solid var(--line);background:linear-gradient(135deg,var(--purple),#5427d6);color:white;padding:12px 16px;border-radius:12px;font-weight:850;box-shadow:0 18px 40px rgba(124,60,255,.25);cursor:pointer}.btn.ghost{background:rgba(255,255,255,.06);box-shadow:none}.hero{min-height:595px;display:grid;grid-template-columns:minmax(340px,660px) 1fr;align-items:center;padding:86px 44px 38px;position:relative;overflow:hidden}.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(7,7,13,.94) 0%,rgba(7,7,13,.74) 34%,rgba(7,7,13,.22) 72%,rgba(7,7,13,.35)),url('assets/approved-design.png') center top/cover no-repeat;filter:saturate(1.05);}.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 70%,#07070d 100%)}.hero-copy{position:relative;z-index:1}.eyebrow{display:inline-block;color:#d8b4fe;background:rgba(124,60,255,.18);border:1px solid rgba(192,132,252,.25);border-radius:999px;padding:8px 14px;font-weight:900;letter-spacing:.08em;font-size:12px;text-transform:uppercase}.hero h1{font-size:clamp(42px,5.2vw,74px);line-height:.98;margin:20px 0 20px;letter-spacing:-.055em;text-shadow:0 12px 32px rgba(0,0,0,.55)}.hero h1 span{color:#8b5cf6}.hero p{max-width:610px;color:#eeeaf8;font-size:18px;line-height:1.55;text-shadow:0 8px 24px #000}.cta{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}.feature-strip{position:relative;z-index:2;margin:-12px auto 0;width:min(92vw,1420px);display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:18px;overflow:hidden;background:rgba(10,12,20,.82);backdrop-filter:blur(18px)}.feature-strip article{padding:25px 28px;border-right:1px solid var(--line);display:grid;grid-template-columns:44px 1fr;gap:14px;align-items:center}.feature-strip article:last-child{border-right:0}.feature-strip .icon{font-size:32px;color:var(--purple)}.feature-strip b{display:block}.feature-strip span{display:block;color:#c9c4d9;font-size:14px;margin-top:5px}.section{padding:58px 44px}.section h2{font-size:38px;margin:0 0 14px;letter-spacing:-.04em}.section p.lead{color:var(--muted);max-width:850px;font-size:17px;line-height:1.55}.dashboard-wrap{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:start}.side{position:sticky;top:90px;background:rgba(17,17,27,.86);border:1px solid var(--line);border-radius:18px;padding:16px}.side h3{margin:0 0 12px;font-size:18px;letter-spacing:-.02em;white-space:nowrap;text-transform:uppercase}.side a{display:block;padding:10px 12px;border-radius:10px;color:#d8d4e8;font-weight:800;margin:2px 0;font-size:14px}.side a.active,.side a:hover{background:linear-gradient(135deg,rgba(124,60,255,.7),rgba(192,132,252,.22));color:white}.main-panel{background:rgba(17,17,27,.72);border:1px solid var(--line);border-radius:20px;padding:22px}.toolbar{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap}.toolbar h2{margin:0}.crud{display:flex;gap:9px;flex-wrap:wrap}.smallbtn{padding:9px 12px;border-radius:11px;border:1px solid var(--line);background:rgba(255,255,255,.07);color:white;font-weight:800;cursor:pointer}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px}.info-card{background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:16px;padding:17px}.info-card h3{margin:0 0 8px}.info-card p{color:#c9c4d9;line-height:1.48;margin:0}.placeholder{border:1px dashed rgba(192,132,252,.45);background:rgba(124,60,255,.08);border-radius:16px;padding:18px;min-height:130px}.types{display:flex;flex-wrap:wrap;gap:10px}.chip{border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:999px;padding:10px 13px;font-weight:900}.compact-grid{display:grid;grid-template-columns:1fr 1fr 1.35fr;gap:14px;margin-top:18px}.compact-card{min-height:150px;background:rgba(255,255,255,.055);border:1px solid var(--line);border-radius:16px;padding:16px}.compact-card h3{margin:0 0 8px;font-size:18px}.compact-card input{width:100%;padding:10px;margin:5px 0;border:1px solid var(--line);border-radius:10px;background:#080812;color:white}.links-list a{display:block;color:#ddd6fe;margin:7px 0;word-break:break-word;font-size:14px}.login-wrap{max-width:620px}.form{background:rgba(255,255,255,.055);border:1px solid var(--line);padding:22px;border-radius:18px}.form input{width:100%;margin:8px 0 14px;padding:13px;border-radius:12px;border:1px solid var(--line);background:#080812;color:white}.notice{color:#fecdd3;background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.3);padding:14px;border-radius:14px;margin-top:16px}.footer{text-align:center;padding:44px;color:var(--muted);border-top:1px solid var(--line)}@media(max-width:1050px){.feature-strip{grid-template-columns:1fr 1fr}.feature-strip article{border-bottom:1px solid var(--line)}.compact-grid{grid-template-columns:1fr}.nav{display:none}}@media(max-width:900px){.hero,.dashboard-wrap{grid-template-columns:1fr}.hero{padding:54px 18px}.section{padding:45px 18px}.grid{grid-template-columns:1fr}.topbar{padding:14px 16px}.actions .ghost{display:none}.side{position:relative;top:auto}.brand span{font-size:13px}.feature-strip{grid-template-columns:1fr;width:calc(100% - 28px)}}
+  </style>
+  <script>
+    function notAuthorized(){alert('Not authorized. Please contact your admin.'); return false;}
+  </script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="#home"><img src="assets/logo.png" alt="Fleet Protect 365 logo"><span>FLEET PROTECT 365</span></a>
+  <nav class="nav">
+    <a href="#dashboard">Dashboard</a>
+    <a href="#mobile-apps">Mobile Apps</a>
+    <a href="#important-numbers">Important Numbers</a>
+    <a href="#traffic-weather">Traffic & Weather</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#documents">Legal Documents</a>
+  </nav>
+  <div class="actions"><a onclick="return notAuthorized()" href="#login">Login</a><a class="btn ghost" href="#demo">Request a Demo</a><a class="btn" href="#dashboard">Get Started</a></div>
+</header>
+
+<main id="home">
+  <section class="hero">
+    <div class="hero-copy">
+      <div class="eyebrow">The #1 compliance platform for modern fleets</div>
+      <h1>Complete Compliance.<br>Every Connection.<br><span>Every Day.</span></h1>
+      <p>Fleet Protect 365 is the most advanced platform for photo documentation, inspections, and compliance reporting for fleets running singles, doubles, and beyond.</p>
+      <div class="cta"><a class="btn" href="#demo">Request a Demo →</a><a class="btn ghost" href="#tour">▶ Watch Video</a></div>
+    </div>
+  </section>
+
+  <section class="feature-strip" aria-label="Key benefits">
+    <article><div class="icon">🛡</div><div><b>FMCSA Compliant</b><span>Stay audit-ready, always.</span></div></article>
+    <article><div class="icon">☁</div><div><b>Cloud Based</b><span>Secure. Scalable. Reliable.</span></div></article>
+    <article><div class="icon">▯</div><div><b>Mobile First</b><span>Built for drivers on the go.</span></div></article>
+    <article><div class="icon">🔗</div><div><b>All Connections</b><span>Tractor to trailer to dolly to trailer.</span></div></article>
+    <article><div class="icon">▥</div><div><b>Real-Time Insights</b><span>Data that drives performance.</span></div></article>
+  </section>
+
+  <section id="dashboard" class="section">
+    <div class="dashboard-wrap">
+      <aside class="side">
+        <h3>Fleet Protect 365</h3>
+        <a class="active" href="#dashboard">Dashboard</a>
+        <a href="#inspections">Inspections</a>
+        <a href="#drivers">Drivers</a>
+        <a href="#vehicles">Vehicles</a>
+        <a href="#trailers">Trailers</a>
+        <a href="#dollies">Dollies</a>
+        <a href="#documents">Documents</a>
+        <a href="#reports">Reports</a>
+        <a href="#alerts">Alerts</a>
+        <a href="#users">Users</a>
+      </aside>
+      <div class="main-panel">
+        <div class="toolbar"><h2>Company Dashboard</h2><div class="crud"><button class="smallbtn">Add New</button><button class="smallbtn">Save</button><button class="smallbtn">Next</button><button class="smallbtn">Save & Next</button></div></div>
+        <p class="lead">This side list is informational and describes the data each company can manage inside Fleet Protect 365.</p>
+        <div class="grid">
+          <article id="inspections" class="info-card"><h3>Inspections</h3><p>Drivers perform both pre-trip and post-trip inspections as pass or fail. If an inspection fails, the issue is fully documented and linehaul, the shop, and dispatch are notified.</p></article>
+          <article id="drivers" class="info-card"><h3>Drivers</h3><p>An active list of current drivers using the program.</p></article>
+          <article id="vehicles" class="info-card"><h3>Vehicles</h3><p>A list of company trucks and unit numbers. In the driver app, drivers select the truck assigned for that day.</p></article>
+          <article id="trailers" class="info-card"><h3>Trailers</h3><p>Drivers enter the trailer number or trailer numbers they are taking on that day's run.</p></article>
+          <article id="dollies" class="info-card"><h3>Dollies</h3><p>For doubles, drivers enter the dolly number used between trailers.</p></article>
+          <article id="documents" class="info-card"><h3>Documents</h3><p>User guides, employee handbook, legal documents, company policies, onboarding files, and other company files.</p></article>
+          <article id="reports" class="info-card"><h3>Reports</h3><p>Drivers can view trip submissions for the current day, week, or month.</p></article>
+          <article id="alerts" class="info-card"><h3>Alerts</h3><p>Messages from management for weather alerts, road closures, safety updates, dispatch notices, and company announcements.</p></article>
+          <article id="users" class="info-card"><h3>Users</h3><p>Non-driver users with access, including compliance officers, safety, supervisors, dispatch, admins, and management.</p></article>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="training" class="section">
+    <h2>Training & Walkthroughs</h2>
+    <p class="lead">Replacement for inspection trends: placeholder area for training screenshots, walkthrough explanations, driver guides, and onboarding.</p>
+    <div class="grid"><div class="placeholder">Training screenshot placeholder</div><div class="placeholder">Driver workflow explanation placeholder</div><div class="placeholder">Admin setup walkthrough placeholder</div></div>
+  </section>
+
+  <section id="updates" class="section">
+    <h2>Updates & Company Needs</h2>
+    <p class="lead">Replacement for recent inspections: use this for company updates, operational needs, required acknowledgements, and safety notes.</p>
+    <div class="placeholder">Company update placeholder</div>
+  </section>
+
+  <section id="connection-types" class="section">
+    <h2>Connection Types</h2>
+    <p class="lead">Drivers select the correct run type before submitting photos and inspections.</p>
+    <div class="types"><span class="chip">53’</span><span class="chip">Doubles</span><span class="chip">Single Pup</span><span class="chip">Bobtail</span><span class="chip">Dolly Only</span></div>
+  </section>
+
+  <section id="important-numbers" class="section">
+    <h2>Important Numbers</h2>
+    <div class="compact-grid">
+      <article class="compact-card"><h3>Important Numbers</h3><input placeholder="Name / department"><input placeholder="Phone number"><button class="smallbtn">Add Number</button></article>
+      <article id="traffic-weather" class="compact-card links-list"><h3>Weather Link</h3><a target="_blank" href="https://radar.weather.gov/?settings=v1_eyJhZ2VuZGEiOnsiaWQiOm51bGwsImNlbnRlciI6Wy04Mi45NjYsMzEuOTU1XSwibG9jYXRpb24iOm51bGwsInpvb20iOjUuMDE2ODI2MTc4NzM5NzAyfSwiYW5pbWF0aW5nIjp0cnVlLCJiYXNlIjoic3RhbmRhcmQiLCJhcnRjYyI6ZmFsc2UsImNvdW50eSI6ZmFsc2UsImN3YSI6ZmFsc2UsInJmYyI6ZmFsc2UsInN0YXRlIjpmYWxzZSwibWVudSI6dHJ1ZSwic2hvcnRGdXNlZE9ubHkiOmZhbHNlLCJvcGFjaXR5Ijp7ImFsZXJ0cyI6MC44LCJsb2NhbCI6MC42LCJsb2NhbFN0YXRpb25zIjowLjgsIm5hdGlvbmFsIjowLjZ9fQ%3D%3D">National Weather Service Radar</a></article>
+      <article class="compact-card links-list"><h3>Traffic Links</h3><a target="_blank" href="https://smartway.tn.gov/traffic?features=cameras,incident,severeImpact,traffic&position=36.00626329,-86.44986221,8">Tennessee SmartWay Cameras / Incidents</a><a target="_blank" href="https://smartway.tn.gov/traffic?features=construction,incident,severeImpact,traffic,weather&position=36.00960862,-86.57048641,10">Tennessee Construction / Weather</a><a target="_blank" href="https://goky.ky.gov">Kentucky GoKY Traffic</a><p style="color:var(--muted);margin:8px 0 0">Placeholder: State 3 • State 4 • State 5 • State 6 • State 7</p><button class="smallbtn">Add New State Link</button></article>
+    </div>
+  </section>
+
+  <section id="mobile-apps" class="section">
+    <h2>Mobile Apps</h2>
+    <p class="lead">Driver mobile workflow for inspections, photos, truck selection, trailer selection, dolly entry, failed inspection documentation, and trip submission history.</p>
+    <div class="grid"><div class="info-card"><h3>Driver App</h3><p>Large buttons, minimal typing, photo capture, GPS, timestamps, and pass/fail workflow.</p></div><div class="info-card"><h3>Admin App</h3><p>Company setup, user access, documents, alerts, and dashboard review.</p></div><div class="info-card"><h3>Company App</h3><p>Each company gets a duplicated company-specific portal after authorized admin login.</p></div></div>
+  </section>
+
+  <section id="pricing" class="section"><h2>Pricing</h2><p class="lead">Pricing placeholder for Starter, Professional, and Enterprise fleet plans.</p></section>
+
+  <section id="login" class="section login-wrap">
+    <h2>Admin Login Rules</h2>
+    <div class="form"><h3>Admin Login</h3><p>Admin enters company ID to access the company-specific duplicate site.</p><input placeholder="Company / Admin ID"><input placeholder="Password" type="password"><button class="btn">Enter Company Site</button><p class="notice">If a non-authorized user clicks Login in the top-right navigation, display: Not authorized. Please contact your admin.</p></div>
+  </section>
+</main>
+<footer id="demo" class="footer">Fleet Protect 365 • Revision 2 mockup • Built from the original approved layout</footer>
+</body>
+</html>
