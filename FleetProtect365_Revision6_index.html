@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Fleet Protect 365 | Dashboard Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05080d;--panel:#0b1119;--line:#1d2a38;--text:#f6f7fb;--muted:#aeb7c4;--purple:#6d4dff;--purple2:#8b6cff;--blue:#23a7ff;--card:#0d1622}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body:before{content:"";position:fixed;inset:0;background:radial-gradient(circle at 20% 0%,rgba(109,77,255,.18),transparent 38%),radial-gradient(circle at 85% 10%,rgba(35,167,255,.12),transparent 34%);pointer-events:none}
+.page{position:relative;z-index:1}.topbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:16px 28px;background:rgba(5,8,13,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.brand{font-weight:900;letter-spacing:-.04em;font-size:28px;white-space:nowrap}.nav{display:flex;align-items:center;gap:6px}.nav a{color:#e9edff;text-decoration:none;font-weight:800;font-size:15px;padding:12px 14px;border-radius:12px}.nav a.active,.nav a:hover{background:rgba(109,77,255,.15);box-shadow:inset 0 -2px 0 var(--purple)}
+.actions{display:flex;gap:10px}.btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;text-decoration:none;font-weight:900;border-radius:14px;padding:13px 18px}.btn.primary{border:0;background:linear-gradient(135deg,var(--purple),#263cff);box-shadow:0 18px 38px rgba(109,77,255,.32)}
+.hero{min-height:670px;display:flex;align-items:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,8,13,.96) 0%,rgba(5,8,13,.82) 38%,rgba(5,8,13,.30) 72%,rgba(5,8,13,.72) 100%),url('approved-design.png');background-size:cover;background-position:center right;filter:saturate(1.05) contrast(1.05)}
+.hero-inner{position:relative;max-width:760px;padding:84px 28px 150px}.eyebrow{color:var(--purple2);text-transform:uppercase;letter-spacing:.09em;font-weight:900;margin-bottom:18px}
+h1{font-size:clamp(48px,7vw,82px);line-height:.93;margin:0 0 22px;letter-spacing:-.065em}.accent{color:var(--purple)}
+.hero p{font-size:20px;line-height:1.55;color:#d3d9e6;max-width:640px;margin:0 0 30px;font-weight:600}
+.feature-strip{position:absolute;left:28px;right:28px;bottom:34px;display:grid;grid-template-columns:repeat(5,1fr);border:1px solid rgba(255,255,255,.15);background:rgba(7,13,21,.72);backdrop-filter:blur(14px);border-radius:22px;overflow:hidden}
+.feature{padding:24px 22px;border-right:1px solid rgba(255,255,255,.12);display:grid;grid-template-columns:42px 1fr;gap:16px;align-items:center}.feature:last-child{border-right:0}.icon{color:var(--purple2);font-size:30px;font-weight:900}.feature b{display:block;font-size:17px}.feature span{display:block;color:#c4ccda;font-size:14px;line-height:1.35;margin-top:4px}
+.section{padding:72px 28px;max-width:1200px;margin:auto}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.card{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.03));border:1px solid var(--line);border-radius:22px;padding:26px;box-shadow:0 18px 40px rgba(0,0,0,.18)}.card h3{margin:0 0 8px;color:var(--purple2);font-size:19px}.card h2{margin:0 0 12px;font-size:32px;letter-spacing:-.04em}.card p,.card li{color:var(--muted);line-height:1.55}.numbers{display:grid;gap:10px;margin-top:18px}.number{display:flex;justify-content:space-between;gap:12px;border:1px solid var(--line);padding:13px 14px;border-radius:14px;background:rgba(255,255,255,.035)}
+.dashboard-wrap{display:grid;grid-template-columns:260px 1fr;gap:18px}.side{display:grid;gap:10px}.side a{display:block;text-decoration:none;color:#dce4f6;border:1px solid var(--line);padding:14px;border-radius:14px;background:rgba(255,255,255,.035);font-weight:800}
+.module-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}.module{border:1px solid var(--line);border-radius:18px;padding:20px;background:rgba(255,255,255,.035)}.module h4{font-size:20px;margin:0 0 8px}.module p{margin:0;color:var(--muted);line-height:1.55}
+.mobile-section{display:grid;grid-template-columns:1fr 390px;gap:34px;align-items:center}.phone{height:680px;border:12px solid #05070b;border-radius:42px;background:linear-gradient(180deg,#101c28,#071019);box-shadow:0 30px 80px rgba(0,0,0,.45);padding:34px 20px;overflow:hidden}.phone-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.phone-logo{font-weight:900}.phone-card{border:1px solid var(--line);background:rgba(255,255,255,.06);border-radius:20px;padding:17px;margin:13px 0}.phone-btn{display:block;text-align:center;background:var(--purple);color:#fff;text-decoration:none;border-radius:14px;padding:14px;font-weight:900;margin-top:14px}.checkrow{display:grid;grid-template-columns:30px 1fr;gap:12px;margin:18px 0}.check{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(109,77,255,.18);color:#b9adff;font-weight:900}.testbox{margin-top:28px;padding:22px;border:1px solid rgba(109,77,255,.45);background:rgba(109,77,255,.11);border-radius:22px}
+footer{border-top:1px solid var(--line);padding:28px;color:var(--muted);text-align:center}
+@media(max-width:950px){.topbar{align-items:flex-start;flex-direction:column}.nav{flex-wrap:wrap}.hero-inner{padding-bottom:40px}.feature-strip{position:relative;left:auto;right:auto;bottom:auto;margin:0 18px 24px;grid-template-columns:1fr}.feature{border-right:0;border-bottom:1px solid rgba(255,255,255,.12)}.grid3,.dashboard-wrap,.module-grid,.mobile-section{grid-template-columns:1fr}.phone{height:auto}.actions{width:100%}.btn{flex:1}.brand{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="topbar">
+<div class="brand">FLEET PROTECT 365</div>
+<nav class="nav">
+<a class="active" href="#dashboard">Dashboard Overview</a>
+<a href="#mobile">Mobile Apps</a>
+<a href="#numbers">Important Numbers</a>
+<a href="#traffic">Traffic & Weather</a>
+<a href="#documents">Documents</a>
+</nav>
+<div class="actions"><a class="btn" href="#login">Login</a><a class="btn primary" href="#demo">Request a Demo</a></div>
+</header>
+
+<section class="hero">
+<div class="hero-inner">
+<div class="eyebrow">The #1 Compliance Platform for Modern Fleets</div>
+<h1>Complete Compliance.<br>Every Connection.<br><span class="accent">Every Day.</span></h1>
+<p>Fleet Protect 365 is the most advanced platform for photo documentation, inspections, and compliance reporting for fleets running singles, doubles, and beyond.</p>
+<a class="btn primary" href="#demo">Request a Demo</a>
+</div>
+<div class="feature-strip">
+<div class="feature"><div class="icon">◇</div><div><b>FMCSA Compliant</b><span>Stay audit-ready, always.</span></div></div>
+<div class="feature"><div class="icon">☁</div><div><b>Cloud Based</b><span>Secure. Scalable. Reliable.</span></div></div>
+<div class="feature"><div class="icon">▯</div><div><b>Mobile First</b><span>Built for drivers on the go.</span></div></div>
+<div class="feature"><div class="icon">🔗</div><div><b>All Connections</b><span>Tractor to trailer to dolly to trailer.</span></div></div>
+<div class="feature"><div class="icon">▥</div><div><b>Real-Time Insights</b><span>Data that drives performance.</span></div></div>
+</div>
+</section>
+
+<section class="section grid3" id="numbers">
+<div class="card"><h3>Important Numbers</h3><p>Easily add and manage important contacts.</p><div class="numbers"><div class="number"><b>Dispatch</b><span>615-555-0100</span></div><div class="number"><b>Maintenance Shop</b><span>615-555-0110</span></div><div class="number"><b>Linehaul</b><span>615-555-0120</span></div><div class="number"><b>Safety Department</b><span>615-555-0130</span></div><div class="number"><b>After Hours</b><span>615-555-0140</span></div></div></div>
+<div class="card" id="traffic"><h3>Weather</h3><h2>Traffic & Weather</h2><p>National radar, road conditions, state traffic links, alerts, cameras, and safety resources for dispatchers, drivers, and fleet leaders.</p><p><b>States:</b> Tennessee, Kentucky, South Carolina, Virginia, Alabama, Illinois, Georgia, Ohio, North Carolina.</p></div>
+<div class="card"><h3>Quick Access</h3><h2>Fleet Tools</h2><p>Important contacts, weather resources, traffic links, reports, documents, users, and alerts in one clean dashboard.</p></div>
+</section>
+
+<section class="section" id="dashboard">
+<div class="dashboard-wrap">
+<aside class="side"><a>▣ Inspections</a><a>♙ Drivers</a><a>▰ Vehicles</a><a>▤ Documents</a><a>▥ Reports</a><a>△ Alerts</a><a>♧ Users</a></aside>
+<div class="card"><h3>Company Dashboard</h3><h2>Dashboard Overview</h2><div class="module-grid">
+<div class="module"><h4>Inspections</h4><p>Drivers perform pre and post trip inspections and fully document any issue that fails.</p></div>
+<div class="module"><h4>Drivers</h4><p>An active list of current drivers using the application.</p></div>
+<div class="module"><h4>Vehicles</h4><p>Company trucks and assigned numbers used by the driver app.</p></div>
+<div class="module"><h4>Documents</h4><p>User guides, employee handbook, safety policies, and training materials.</p></div>
+<div class="module"><h4>Reports</h4><p>Drivers and admins can review submissions by day, week, month, or date range.</p></div>
+<div class="module"><h4>Alerts</h4><p>Management messages for weather alerts, road closures, and operational updates.</p></div>
+</div></div>
+</div>
+</section>
+
+<section class="section mobile-section" id="mobile">
+<div class="card">
+<h3>Mobile Apps</h3>
+<h2>Every connection. Every inspection. Every day.</h2>
+<p>FleetProtect365 helps trucking companies document tractor-to-trailer connections, required safety checks, and driver-certified compliance records from the field.</p>
+<div class="testbox">
+<h2>Test the driver workflow inside the website.</h2>
+<p>This section integrates the driver-side app directly into the marketing site mockup so you can click through the workflow the way a driver would.</p>
+<div class="checkrow"><div class="check">✓</div><div><b>Manual equipment entry</b><br><span style="color:var(--muted)">Truck numbers, trailers, dollies, and NA are supported.</span></div></div>
+<div class="checkrow"><div class="check">✓</div><div><b>Required photo proof</b><br><span style="color:var(--muted)">Fifth wheel, air/electric lines, landing gear, and connection overview.</span></div></div>
+<div class="checkrow"><div class="check">✓</div><div><b>Quick pre-trip checklist</b><br><span style="color:var(--muted)">Short, practical required items before certification.</span></div></div>
+<div class="checkrow"><div class="check">✓</div><div><b>Driver-only records</b><br><span style="color:var(--muted)">View Entries shows the logged-in driver's own submissions.</span></div></div>
+<a class="btn primary" href="#driver-demo">Test Driver App</a>
+</div>
+</div>
+<div class="phone" id="driver-demo">
+<div class="phone-head"><div class="phone-logo">FleetProtect365</div><div style="color:var(--muted);font-size:13px">Steve A.</div></div>
+<div class="phone-card"><b>Driver Home</b><p>New Entry</p><p>View Entries</p></div>
+<div class="phone-card"><b>Required Photos</b><p>Take Photo · Upload Photo · Bypass with red flag</p></div>
+<div class="phone-card"><b>Smart Checklist</b><p>Tractor, connection, trailer, and brake check items.</p></div>
+<a class="phone-btn" href="#">Launch Driver App Demo</a>
+</div>
+</section>
+
+<section class="section" id="documents">
+<div class="card"><h3>Documents</h3><h2>Company Documents</h2><p>Placeholder for user guides, employee handbook, operating procedures, safety policies, training materials, and other documents companies need to make available to drivers and authorized users.</p></div>
+</section>
+
+<footer>Fleet Protect 365 · Revision 6 Stable Website Draft</footer>
+</div>
+</body>
+</html>
