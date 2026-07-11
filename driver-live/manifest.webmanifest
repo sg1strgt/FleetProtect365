@@ -1,0 +1,8 @@
+{
+  "name": "FleetProtect365 Driver",
+  "short_name": "FP365 Driver",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#05080d",
+  "theme_color": "#07101a"
+}
