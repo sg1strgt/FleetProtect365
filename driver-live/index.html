@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07101a">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./styles.css">
+  <title>FleetProtect365 Driver</title>
+</head>
+<body>
+<main class="app">
+<header class="topbar">
+  <div><div class="brand">FleetProtect365</div><div id="sessionLabel" class="muted">Not signed in</div></div>
+  <button id="homeButton" class="icon-button hidden">Home</button>
+</header>
+
+<section id="setupScreen" class="screen">
+  <h1>Connect Supabase</h1>
+  <div class="notice">Open <b>config.js</b>, paste your Project URL and browser-safe publishable key, save, then reload. Never use a secret or service-role key here.</div>
+</section>
+
+<section id="loginScreen" class="screen hidden">
+  <h1>Driver Login</h1>
+  <p>Live pilot login currently uses the Supabase account email.</p>
+  <label>Email</label><input id="email" type="email" value="steven@fleetprotect365.com">
+  <label>Password</label><input id="password" type="password">
+  <button id="loginButton" class="primary">Login</button>
+  <button id="forgotButton" class="secondary">Forgot Password</button>
+  <p id="loginMessage" class="message"></p>
+</section>
+
+<section id="homeScreen" class="screen hidden">
+  <h1 id="welcome">Driver Home</h1>
+  <div id="profileSummary" class="card"></div>
+  <button class="menu-button" data-target="inspectionScreen">New Inspection<small>Create a live Supabase draft</small></button>
+  <button class="menu-button" data-action="viewEntries">View Entries<small>Load your own records</small></button>
+  <button class="menu-button" data-action="profile">My Profile<small>Live employee profile</small></button>
+  <button class="menu-button" data-action="logout">Logout<small>End this device session</small></button>
+</section>
+
+<section id="inspectionScreen" class="screen hidden">
+  <h1>New Inspection</h1>
+  <label>Equipment Type</label>
+  <select id="equipmentType">
+    <option value="">Select type</option>
+    <option value="53_trailer">53' Trailer</option>
+    <option value="single_pup">Single Pup</option>
+    <option value="doubles">Doubles</option>
+    <option value="bobtail">Bobtail</option>
+  </select>
+  <label>Truck Number</label><select id="truck"><option value="">Loading trucks...</option></select>
+  <label>Trailer 1</label><input id="trailer1" placeholder="Enter number or N/A">
+  <label>Dolly</label><input id="dolly" placeholder="Enter number or N/A">
+  <label>Trailer 2</label><input id="trailer2" placeholder="Enter number or N/A">
+  <div class="two-column">
+    <div><label>Location From</label><input id="locationFrom"></div>
+    <div><label>Location To</label><input id="locationTo"></div>
+  </div>
+  <label>Notes</label><textarea id="notes" placeholder="Enter notes or N/A"></textarea>
+  <div id="gpsStatus" class="notice">GPS not captured yet.</div>
+  <button id="gpsButton" class="secondary">Capture GPS</button>
+  <button id="saveDraftButton" class="primary">Save Draft</button>
+  <p id="inspectionMessage" class="message"></p>
+</section>
+
+<section id="entriesScreen" class="screen hidden"><h1>My Entries</h1><div id="entriesList"></div></section>
+<section id="profileScreen" class="screen hidden"><h1>My Profile</h1><div id="profileDetails" class="card"></div></section>
+
+<footer><a href="mailto:feedback@fleetprotect365.com?subject=FleetProtect365%20Driver%20Feedback">Send Feedback</a><span>Live Driver v0.4.0</span></footer>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>
