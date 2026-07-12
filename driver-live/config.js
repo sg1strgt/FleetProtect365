@@ -1,4 +1,4 @@
 window.FP365_CONFIG = {
-  supabaseUrl: "https://ahoejwyxfclndcbcxhwv.supabase.co",
-  supabasePublishableKey: "sb_publishable_FeyV-yXT6lwFHh737rYnAQ_mYoP8TIW"
+  supabaseUrl: "PASTE_YOUR_PROJECT_URL_HERE",
+  supabasePublishableKey: "PASTE_YOUR_PUBLISHABLE_KEY_HERE"
 };
