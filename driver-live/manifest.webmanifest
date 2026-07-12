@@ -4,5 +4,6 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#05080d",
-  "theme_color": "#07101a"
+  "theme_color": "#07101a",
+  "description": "FleetProtect365 field-test driver application"
 }

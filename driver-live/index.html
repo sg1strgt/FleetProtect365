@@ -10,65 +10,158 @@
 </head>
 <body>
 <main class="app">
-<header class="topbar">
-  <div><div class="brand">FleetProtect365</div><div id="sessionLabel" class="muted">Not signed in</div></div>
-  <button id="homeButton" class="icon-button hidden">Home</button>
-</header>
+  <header class="topbar">
+    <div>
+      <div class="brand">FLEET PROTECT 365</div>
+      <div id="sessionLabel" class="muted">Not signed in</div>
+    </div>
+    <div class="top-actions">
+      <button id="backButton" class="icon-button hidden">Back</button>
+      <button id="homeButton" class="icon-button hidden">Home</button>
+    </div>
+  </header>
 
-<section id="setupScreen" class="screen">
-  <h1>Connect Supabase</h1>
-  <div class="notice">Open <b>config.js</b>, paste your Project URL and browser-safe publishable key, save, then reload. Never use a secret or service-role key here.</div>
-</section>
+  <section id="setupScreen" class="screen">
+    <h1>Connect Supabase</h1>
+    <div class="notice">Open <b>config.js</b>, paste your Project URL and browser-safe publishable key, save, then reload.</div>
+  </section>
 
-<section id="loginScreen" class="screen hidden">
-  <h1>Driver Login</h1>
-  <p>Live pilot login currently uses the Supabase account email.</p>
-  <label>Email</label><input id="email" type="email" value="steven@fleetprotect365.com">
-  <label>Password</label><input id="password" type="password">
-  <button id="loginButton" class="primary">Login</button>
-  <button id="forgotButton" class="secondary">Forgot Password</button>
-  <p id="loginMessage" class="message"></p>
-</section>
+  <section id="loginScreen" class="screen hidden">
+    <h1>Driver Login</h1>
+    <p class="subtext">Field-test login uses your Supabase email and password.</p>
+    <label>Email</label>
+    <input id="email" type="email" autocomplete="username" value="steven@fleetprotect365.com">
+    <label>Password</label>
+    <input id="password" type="password" autocomplete="current-password">
+    <button id="loginButton" class="primary">Login</button>
+    <button id="forgotButton" class="secondary">Forgot Password</button>
+    <p id="loginMessage" class="message"></p>
+  </section>
 
-<section id="homeScreen" class="screen hidden">
-  <h1 id="welcome">Driver Home</h1>
-  <div id="profileSummary" class="card"></div>
-  <button class="menu-button" data-target="inspectionScreen">New Inspection<small>Create a live Supabase draft</small></button>
-  <button class="menu-button" data-action="viewEntries">View Entries<small>Load your own records</small></button>
-  <button class="menu-button" data-action="profile">My Profile<small>Live employee profile</small></button>
-  <button class="menu-button" data-action="logout">Logout<small>End this device session</small></button>
-</section>
+  <section id="homeScreen" class="screen hidden">
+    <h1 id="welcome">Driver Home</h1>
+    <div id="profileSummary" class="card"></div>
 
-<section id="inspectionScreen" class="screen hidden">
-  <h1>New Inspection</h1>
-  <label>Equipment Type</label>
-  <select id="equipmentType">
-    <option value="">Select type</option>
-    <option value="53_trailer">53' Trailer</option>
-    <option value="single_pup">Single Pup</option>
-    <option value="doubles">Doubles</option>
-    <option value="bobtail">Bobtail</option>
-  </select>
-  <label>Truck Number</label><select id="truck"><option value="">Loading trucks...</option></select>
-  <label>Trailer 1</label><input id="trailer1" placeholder="Enter number or N/A">
-  <label>Dolly</label><input id="dolly" placeholder="Enter number or N/A">
-  <label>Trailer 2</label><input id="trailer2" placeholder="Enter number or N/A">
-  <div class="two-column">
-    <div><label>Location From</label><input id="locationFrom"></div>
-    <div><label>Location To</label><input id="locationTo"></div>
-  </div>
-  <label>Notes</label><textarea id="notes" placeholder="Enter notes or N/A"></textarea>
-  <div id="gpsStatus" class="notice">GPS not captured yet.</div>
-  <button id="gpsButton" class="secondary">Capture GPS</button>
-  <button id="saveDraftButton" class="primary">Save Draft</button>
-  <p id="inspectionMessage" class="message"></p>
-</section>
+    <button id="continueDraftButton" class="menu-button draft hidden">
+      Continue Saved Entry
+      <small id="continueDraftText"></small>
+    </button>
 
-<section id="entriesScreen" class="screen hidden"><h1>My Entries</h1><div id="entriesList"></div></section>
-<section id="profileScreen" class="screen hidden"><h1>My Profile</h1><div id="profileDetails" class="card"></div></section>
+    <button class="menu-button" data-action="newInspection">
+      New Inspection
+      <small>Start a new 53', Doubles, Single Pup, or Bobtail inspection</small>
+    </button>
 
-<footer><a href="mailto:feedback@fleetprotect365.com?subject=FleetProtect365%20Driver%20Feedback">Send Feedback</a><span>Live Driver v0.4.0</span></footer>
+    <button class="menu-button" data-action="viewEntries">
+      View Entries
+      <small>Open drafts and submitted entries</small>
+    </button>
+
+    <button class="menu-button" data-action="profile">
+      Profile
+      <small>View or edit your driver profile</small>
+    </button>
+
+    <button class="menu-button danger-outline" data-action="logout">
+      Logout
+      <small>End this device session</small>
+    </button>
+  </section>
+
+  <section id="inspectionScreen" class="screen hidden">
+    <h1 id="inspectionHeading">New Inspection</h1>
+    <div id="autoGpsStatus" class="notice">Capturing GPS automatically…</div>
+
+    <label>Equipment Type</label>
+    <select id="equipmentType">
+      <option value="">Select type</option>
+      <option value="53_trailer">53' Trailer</option>
+      <option value="single_pup">Single Pup</option>
+      <option value="doubles">Doubles</option>
+      <option value="bobtail">Bobtail</option>
+    </select>
+
+    <label>Truck Number</label>
+    <select id="truck"><option value="">Loading trucks…</option></select>
+
+    <div id="trailerFields">
+      <label>Trailer 1</label><input id="trailer1" placeholder="Enter number or N/A">
+      <label>Dolly</label><input id="dolly" placeholder="Enter number or N/A">
+      <label>Trailer 2</label><input id="trailer2" placeholder="Enter number or N/A">
+    </div>
+
+    <div class="two-column">
+      <div><label>Location From</label><input id="locationFrom" placeholder="Enter location"></div>
+      <div><label>Location To</label><input id="locationTo" placeholder="Enter location"></div>
+    </div>
+
+    <label>Notes</label>
+    <textarea id="notes" maxlength="3000" placeholder="Enter notes or N/A"></textarea>
+
+    <h2>Photo Documentation</h2>
+    <p class="subtext">Camera opens only when Take Photo is tapped. Upload Photo opens the photo library.</p>
+    <div id="photoRequirements"></div>
+
+    <div class="sticky-bar">
+      <button id="saveDraftButton" class="secondary">Save Draft</button>
+      <button id="submitInspectionButton" class="primary">Submit</button>
+    </div>
+    <p id="inspectionMessage" class="message"></p>
+  </section>
+
+  <section id="entriesScreen" class="screen hidden">
+    <h1>View Entries</h1>
+    <div id="entriesList"></div>
+  </section>
+
+  <section id="entryDetailScreen" class="screen hidden">
+    <h1>Entry Details</h1>
+    <div id="entryDetails" class="card"></div>
+    <div id="entryPhotoList"></div>
+    <button id="editDraftButton" class="primary hidden">Continue / Edit Draft</button>
+    <button id="editSubmittedButton" class="secondary hidden">Edit</button>
+    <button id="doneEntryButton" class="secondary">Done</button>
+  </section>
+
+  <section id="submitResultScreen" class="screen hidden">
+    <h1>Inspection Submitted</h1>
+    <div id="submitResultCard" class="card"></div>
+    <p>Would you like to review this inspection?</p>
+    <div class="two-column">
+      <button id="reviewSubmittedButton" class="primary">Yes — Review</button>
+      <button id="returnHomeAfterSubmitButton" class="secondary">No — Return Home</button>
+    </div>
+  </section>
+
+  <section id="profileScreen" class="screen hidden">
+    <div class="heading-row">
+      <h1>Profile</h1>
+      <button id="editProfileButton" class="small-button">Edit</button>
+    </div>
+    <div id="profileDetails" class="card"></div>
+  </section>
+
+  <section id="profileEditScreen" class="screen hidden">
+    <h1>Edit Profile</h1>
+    <label>Full Name</label><input id="pFullName">
+    <label>Phone</label><input id="pPhone">
+    <label>Email</label><input id="pEmail" type="email">
+    <label>Title</label><input id="pTitle">
+    <label>Driver License Number</label><input id="pDlNumber">
+    <label>State Issued</label><input id="pDlState">
+    <label>Driver License Expiration</label><input id="pDlExpires" type="date">
+    <label>Medical Card Expiration</label><input id="pMedicalExpires" type="date">
+    <button id="saveProfileButton" class="primary">Save Profile</button>
+    <button id="cancelProfileButton" class="secondary">Cancel</button>
+    <p id="profileMessage" class="message"></p>
+  </section>
+
+  <footer>
+    <a href="mailto:feedback@fleetprotect365.com?subject=FleetProtect365%20Driver%20Feedback">Send Feedback</a>
+    <span>Driver v1.0 Field Test</span>
+  </footer>
 </main>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="./config.js"></script>
 <script src="./app.js"></script>
