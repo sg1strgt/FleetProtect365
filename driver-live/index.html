@@ -1,13 +1,42 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07101a"><link rel="stylesheet" href="./styles.css"><link rel="manifest" href="./manifest.webmanifest"><title>FleetProtect365 Driver</title></head><body><main class="app">
-<header class="topbar"><div><div class="brand">FLEET PROTECT 365</div><div id="sessionLabel" class="muted">Not signed in</div></div><div class="top-actions"><button id="backButton" class="icon-button hidden">Back</button><button id="homeButton" class="icon-button hidden">Home</button></div></header>
-<section id="setupScreen" class="screen"><h1>Connect Supabase</h1><div class="notice">Open <b>config.js</b> and add your Supabase Project URL and publishable key.</div></section>
-<section id="loginScreen" class="screen hidden"><h1>Driver Login</h1><label>Email</label><input id="email" type="email" value="steven@fleetprotect365.com"><label>Password</label><input id="password" type="password"><button id="loginButton" class="primary">Login</button><button id="forgotButton" class="secondary">Forgot Password</button><p id="loginMessage" class="message"></p></section>
-<section id="homeScreen" class="screen hidden"><h1 id="welcome">Driver Home</h1><div id="profileSummary" class="card"></div><button class="menu-button" data-action="viewEntries">View Entries<small>Open submitted entries</small></button><button class="menu-button" data-action="profile">Profile<small>View your driver profile</small></button><button class="menu-button" data-action="feedback">Feedback / Suggestion<small>Send feedback directly to FleetProtect365</small></button><button class="menu-button endshift" data-action="endShift">End Shift<small>Create one PDF, email it, and save it to Google Drive</small></button><button class="menu-button danger-outline" data-action="logout">Logout</button></section>
-<section id="entriesScreen" class="screen hidden"><h1>View Entries</h1><div id="entriesList"></div></section>
-<section id="entryDetailScreen" class="screen hidden"><h1>Entry Details</h1><div id="entryDetails" class="card"></div><div id="entryPhotos"></div><button id="doneEntryButton" class="secondary">Done</button></section>
-<section id="profileScreen" class="screen hidden"><h1>Profile</h1><div id="profileDetails" class="card"></div></section>
-<section id="feedbackScreen" class="screen hidden"><h1>Feedback / Suggestion</h1><label>Name</label><input id="feedbackName"><label>Category</label><select id="feedbackCategory"><option value="">Select category</option><option value="bug">Bug Report</option><option value="suggestion">Suggestion</option><option value="question">Question</option><option value="compliment">Compliment</option><option value="other">Other</option></select><label>Feedback / Suggestion</label><textarea id="feedbackMessage" maxlength="750"></textarea><div id="feedbackCounter" class="counter">0 / 750</div><button id="submitFeedbackButton" class="primary">Submit</button><button id="cancelFeedbackButton" class="secondary">Cancel</button><p id="feedbackStatus" class="message"></p></section>
-<section id="endShiftScreen" class="screen hidden"><h1>End Shift</h1><div id="endShiftList"></div><div id="endShiftStatus" class="notice">Loading today's submitted inspections…</div><button id="generateEndShiftButton" class="primary">Generate, Email & Save PDF</button></section>
-<section id="logoutChecklistScreen" class="screen hidden"><h1>End-of-Shift Checklist</h1><label class="checkrow"><input type="checkbox" id="c1"> Logged into Off Duty in Motive?</label><label class="checkrow"><input type="checkbox" id="c2"> Leave vehicle in Motive?</label><label class="checkrow"><input type="checkbox" id="c3"> Signed logs?</label><label class="checkrow"><input type="checkbox" id="c4"> Leave fuel card in the truck?</label><button id="finishLogoutButton" class="primary">Complete Logout</button><p id="logoutMessage" class="message"></p></section>
-<footer><a href="#" id="feedbackFooter">Feedback</a><span>Driver v1.1</span></footer></main>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script><script src="./config.js"></script><script src="./app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07101a" />
+  <title>Fleet Protect 365 Driver</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <button id="backBtn" class="icon-btn hidden" aria-label="Go back">←</button>
+      <div>
+        <div class="brand">Fleet Protect 365</div>
+        <div id="screenTitle" class="screen-title">Driver</div>
+      </div>
+      <button id="homeBtn" class="icon-btn hidden" aria-label="Home">⌂</button>
+    </header>
+
+    <main id="main"></main>
+
+    <footer class="footer">
+      <button id="feedbackFooter" class="text-btn">Feedback / Suggestion</button>
+      <span>Driver v1.1</span>
+    </footer>
+  </div>
+
+  <dialog id="modal" class="modal">
+    <form method="dialog" class="modal-card">
+      <h2 id="modalTitle">Notice</h2>
+      <div id="modalBody"></div>
+      <button class="primary" value="close">Close</button>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
