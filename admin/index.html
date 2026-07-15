@@ -9,8 +9,27 @@
 <section id="audit" class="view hidden"><div class="head"><h2>Status Audit Trail</h2><button id="refreshAudit">Refresh</button></div><div id="auditList"></div></section>
 <section id="settings" class="view hidden"><div class="card"><h2>Company Settings</h2><label>Company Name</label><input id="companyName" disabled><label>Company Code</label><input id="companyCode" disabled><label>Google Drive Folder ID</label><input id="driveFolder"><label>Primary Contact</label><input id="contactName"><label>Contact Email</label><input id="contactEmail"><label>Contact Phone</label><input id="contactPhone"><button id="saveSettings" class="primary">Save</button><p id="settingsMsg"></p></div></section>
 </main></div>
+
 <dialog id="statusDialog"><form method="dialog"><h3>Change Status</h3><input id="statusUser" type="hidden"><label>New Status</label><select id="newStatus"><option>active</option><option>inactive</option><option>suspended</option><option>terminated</option></select><label>Reason</label><textarea id="statusReason"></textarea><div class="actions"><button value="cancel">Cancel</button><button id="saveStatus" class="primary" value="default">Save</button></div></form></dialog>
-<dialog id="driverDialog"><form method="dialog" id="driverForm"><h3>Add Driver or User</h3><label>Display Name</label><input id="driverDisplayName" required placeholder="First name"><label>Full Name</label><input id="driverFullName" required><label>Employee ID</label><input id="driverEmployeeId" required inputmode="numeric"><label>Phone</label><input id="driverPhone" required type="tel"><label>Email</label><input id="driverEmail" required type="email"><label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select><label>Status</label><select id="driverStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select><label>Temporary Password</label><input id="driverPassword" required type="password" minlength="8" placeholder="8+ letters/numbers, 1 capital"><details><summary>Optional compliance information</summary><label>Driver License Number</label><input id="driverDlNumber"><label>License State</label><input id="driverDlState" maxlength="2"><label>License Expiration</label><input id="driverDlExpires" type="date"><label>Medical Card Expiration</label><input id="driverMedExpires" type="date"></details><p id="driverFormMsg"></p><div class="actions"><button value="cancel">Cancel</button><button id="saveDriver" class="primary" value="default">Create User</button></div></form></dialog>
+
+<dialog id="driverDialog"><form method="dialog" id="driverForm"><h3>Add Driver or User</h3>
+<label>Display Name</label><input id="driverDisplayName" required placeholder="First name">
+<label>Full Name</label><input id="driverFullName" required>
+<label>Employee ID</label><input id="driverEmployeeId" required inputmode="numeric">
+<label>Phone</label><input id="driverPhone" required type="tel">
+<label>Email</label><input id="driverEmail" required type="email">
+<label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select>
+<label>Status</label><select id="driverStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+<label>Temporary Password</label><input id="driverPassword" required type="password" minlength="8" placeholder="8+ letters/numbers, 1 capital">
+<details><summary>Optional compliance information</summary>
+<label>Driver License Number</label><input id="driverDlNumber">
+<label>License State</label><input id="driverDlState" maxlength="2">
+<label>License Expiration</label><input id="driverDlExpires" type="date">
+<label>Medical Card Expiration</label><input id="driverMedExpires" type="date">
+</details>
+<p id="driverFormMsg"></p>
+<div class="actions"><button value="cancel">Cancel</button><button id="saveDriver" class="primary" value="default">Create User</button></div></form></dialog>
+
 <dialog id="truckDialog"><form method="dialog"><h3>Add Truck</h3><input id="truckNumber" inputmode="numeric" placeholder="Truck number"><div class="actions"><button value="cancel">Cancel</button><button id="saveTruck" class="primary" value="default">Add</button></div></form></dialog>
 <dialog id="recipientDialog"><form method="dialog"><h3>Add Recipient</h3><input id="recipientName" placeholder="Display name"><input id="recipientEmail" type="email" placeholder="Email"><select id="recipientType"><option value="admin">Admin</option><option value="super_admin">Super Admin</option><option value="additional">Additional</option></select><div class="actions"><button value="cancel">Cancel</button><button id="saveRecipient" class="primary" value="default">Add</button></div></form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script><script src="./add-driver.js"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script></body></html>
