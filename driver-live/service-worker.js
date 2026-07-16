@@ -1,11 +1,10 @@
-const CACHE_NAME = "fp365-driver-v1.3.0";
+const CACHE_NAME = "fp365-driver-emergency-1.3.1";
 
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./fixes-v13.js",
   "./config.js",
   "./manifest.webmanifest"
 ];
