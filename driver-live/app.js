@@ -694,8 +694,7 @@
   function detail(label, value) {
     return `<div class="detail-row"><strong>${esc(label)}</strong><div class="muted">${esc(value || "Not set")}</div></div>`;
   }
-
-  function renderEndShift() {
+function renderEndShift() {
     header("End of Shift");
     const items = [
       "Logged into Off Duty in Motive?",
@@ -703,27 +702,79 @@
       "Signed logs?",
       "Leave fuel card in the truck?"
     ];
-    const todayCount = driverEntries().filter(e => new Date(e.submitted_at).toDateString() === new Date().toDateString()).length;
+
+    const now = new Date();
+    const todayEntries = driverEntries().filter(entry => {
+      const submitted = new Date(entry.submitted_at || entry.created_at);
+      return submitted.getFullYear() === now.getFullYear()
+        && submitted.getMonth() === now.getMonth()
+        && submitted.getDate() === now.getDate();
+    });
+
     main.innerHTML = `
       <section class="card">
         <h2>End-of-shift checklist</h2>
-        <p class="field-help">${todayCount} submitted entr${todayCount === 1 ? "y" : "ies"} found for today.</p>
+        <p class="field-help">${todayEntries.length} submitted entr${todayEntries.length === 1 ? "y" : "ies"} found for today.</p>
+        ${todayEntries.length === 0 ? `<div class="alert">No inspections are available to email for today.</div>` : ""}
         ${items.map(x => `<label class="check"><input class="shift" type="checkbox"><span>${esc(x)}</span></label>`).join("")}
       </section>
-      <button id="finishShift" class="success">Complete End of Shift</button>`;
-    document.getElementById("finishShift").onclick = () => {
+      <button id="finishShift" class="success" ${todayEntries.length === 0 ? "disabled" : ""}>
+        Email Report and Complete End of Shift
+      </button>`;
+
+    document.getElementById("finishShift").onclick = async () => {
       if ([...document.querySelectorAll(".shift")].some(x => !x.checked)) {
-        return showModal("Checklist incomplete", "<p>Every item must be confirmed before logging out.</p>");
+        return showModal("Checklist incomplete", "<p>Every item must be confirmed before completing End of Shift.</p>");
       }
-      showModal("Have a good night.", "<p>Your checklist is complete. PDF creation, email delivery, and Google Drive storage will be added in the reporting phase.</p>");
-      localStorage.removeItem("fp365_user");
-      state.user = null;
-      state.history = [];
-      state.screen = "login";
-      setTimeout(render, 100);
+      if (!todayEntries.length) return showModal("No inspections found", "<p>There are no submitted inspections for today.</p>");
+      if (!supabaseClient) return showModal("Email not configured", "<p>Supabase is not configured in config.js.</p>");
+
+      const button = document.getElementById("finishShift");
+      button.disabled = true;
+      button.textContent = "Creating and emailing PDF…";
+
+      const payload = {
+        driver: {
+          full_name: state.user?.full_name || "",
+          employee_id: state.user?.employee_id || "",
+          email: state.user?.email || ""
+        },
+        shift_date: [
+          now.getFullYear(),
+          String(now.getMonth() + 1).padStart(2, "0"),
+          String(now.getDate()).padStart(2, "0")
+        ].join("-"),
+        entries: todayEntries,
+        app_version: cfg.APP_VERSION || "Driver v1.7"
+      };
+
+      try {
+        const { data, error } = await supabaseClient.functions.invoke(
+          cfg.END_SHIFT_FUNCTION || "send-end-shift",
+          { body: payload }
+        );
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error || "The report email was not confirmed.");
+
+        showModal(
+          "Report emailed",
+          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to <strong>steven@fleetprotect365.com</strong>.</p><p>Have a good night.</p>`
+        );
+        localStorage.removeItem("fp365_user");
+        state.user = null;
+        state.history = [];
+        state.screen = "login";
+        setTimeout(render, 500);
+      } catch (err) {
+        button.disabled = false;
+        button.textContent = "Email Report and Complete End of Shift";
+        showModal(
+          "Email was not sent",
+          `<p>${esc(err.message || String(err))}</p><p>You remain logged in. Please try again.</p>`
+        );
+      }
     };
   }
-
   function renderFeedback() {
     header("Feedback / Suggestion");
     main.innerHTML = `
