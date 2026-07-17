@@ -53,12 +53,63 @@
     screen: "login",
     history: [],
     user: readJson("fp365_user", null),
-    draft: readJson("fp365_draft", null),
-    entries: readJson("fp365_entries", []),
+    draft: null,
+    entries: [],
     current: null,
     selectedEntry: null,
     pretripDone: false
   };
+
+  const DB_NAME = "fp365-driver-db";
+  const DB_VERSION = 1;
+  const DB_STORE = "kv";
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error || new Error("Unable to open device storage."));
+    });
+  }
+
+  async function dbGet(key, fallback) {
+    try {
+      const db = await openDb();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_STORE, "readonly");
+        const request = tx.objectStore(DB_STORE).get(key);
+        request.onsuccess = () => resolve(request.result ?? fallback);
+        request.onerror = () => reject(request.error);
+      });
+    } catch {
+      return fallback;
+    }
+  }
+
+  async function dbSet(key, value) {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error("Unable to save on this device."));
+      tx.onabort = () => reject(tx.error || new Error("Unable to save on this device."));
+    });
+  }
+
+  async function dbDelete(key) {
+    const db = await openDb();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(DB_STORE, "readwrite");
+      tx.objectStore(DB_STORE).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error || new Error("Unable to update device storage."));
+    });
+  }
 
   const main = document.getElementById("main");
   const title = document.getElementById("screenTitle");
@@ -399,6 +450,14 @@
       };
     });
 
+    document.querySelectorAll(".remove-required").forEach(button => {
+      button.onclick = () => {
+        const index = button.dataset.index;
+        delete c.photos[index];
+        renderInspection();
+      };
+    });
+
     const extraHandler = async e => {
       for (const file of [...(e.target.files || [])]) c.extra_photos.push(await fileRecord(file));
       renderInspection();
@@ -416,10 +475,14 @@
       };
     });
 
-    document.getElementById("saveBtn").onclick = () => {
+    document.getElementById("saveBtn").onclick = async () => {
       syncCurrent();
       state.draft = structuredClone(state.current);
-      writeJson("fp365_draft", state.draft);
+      try {
+        await dbSet("draft", state.draft);
+      } catch (err) {
+        return showModal("Unable to save", `<p>${esc(err.message || String(err))}</p>`);
+      }
       state.current = null;
       state.history = [];
       state.screen = "home";
@@ -444,14 +507,15 @@
         <div id="status-${index}" class="status ${record ? "ok":"missing"}">${record ? `Added: ${esc(record.name)}`:"Required"}</div>
         ${record?.data_url ? `<img id="preview-${index}" class="photo-preview expandable-photo" src="${record.data_url}" alt="${esc(label)}" title="Tap to enlarge">` : `<img id="preview-${index}" class="photo-preview expandable-photo" alt="${esc(label)}" style="display:none" title="Tap to enlarge">`}
         <div class="photo-actions">
-          <label class="file-label">Take Photo<input class="required-photo" data-index="${index}" type="file" accept="image/*" capture="environment"></label>
-          <label class="file-label">Upload Photo<input class="required-photo" data-index="${index}" type="file" accept="image/*"></label>
+          <label class="file-label">${record ? "Retake Photo" : "Take Photo"}<input class="required-photo" data-index="${index}" type="file" accept="image/*" capture="environment"></label>
+          <label class="file-label">${record ? "Replace from Library" : "Upload Photo"}<input class="required-photo" data-index="${index}" type="file" accept="image/*"></label>
         </div>
+        ${record ? `<button type="button" class="danger remove-required" data-index="${index}" style="margin-top:8px">Remove Photo</button>` : ""}
       </div>`;
   }
 
   async function fileRecord(file) {
-    const dataUrl = await compressImage(file, 720, 0.46);
+    const dataUrl = await compressImage(file, 640, 0.42);
     return { name: file.name || `photo-${Date.now()}.jpg`, size: file.size, type: file.type, data_url: dataUrl };
   }
 
@@ -544,7 +608,7 @@
       </section>
       <button id="submitBtn" class="primary">Submit Entry</button>`;
 
-    document.getElementById("submitBtn").onclick = () => {
+    document.getElementById("submitBtn").onclick = async () => {
       if ([...document.querySelectorAll(".cert")].some(x => !x.checked)) {
         return showModal("Certification required", "<p>Complete every checklist item before submitting.</p>");
       }
@@ -552,13 +616,13 @@
       state.current.submitted_at = new Date().toISOString();
       state.entries.unshift(structuredClone(state.current));
       try {
-        writeJson("fp365_entries", state.entries);
-      } catch {
+        await dbSet("entries", state.entries);
+        await dbDelete("draft");
+      } catch (err) {
         state.entries.shift();
-        return showModal("Unable to save", "<p>The photos could not be stored on this device. Remove an extra photo and try again.</p>");
+        return showModal("Unable to save", `<p>${esc(err.message || String(err))}</p>`);
       }
       state.draft = null;
-      localStorage.removeItem("fp365_draft");
       state.current = null;
       state.pretripDone = false;
       state.history = [];
@@ -689,7 +753,7 @@
         submitted_by: name,
         employee_id: state.user?.employee_id || null,
         category, message,
-        app_version: cfg.APP_VERSION || "Driver v1.6",
+        app_version: cfg.APP_VERSION || "Driver v1.7",
         user_agent: navigator.userAgent,
         submitted_at: new Date().toISOString()
       };
@@ -706,5 +770,23 @@
     };
   }
 
-  render();
+  async function init() {
+    const oldDraft = readJson("fp365_draft", null);
+    const oldEntries = readJson("fp365_entries", []);
+    state.draft = await dbGet("draft", oldDraft);
+    state.entries = await dbGet("entries", oldEntries);
+
+    if (oldDraft && !(await dbGet("draft", null))) await dbSet("draft", oldDraft);
+    if (oldEntries.length && !(await dbGet("entries", null))) await dbSet("entries", oldEntries);
+
+    localStorage.removeItem("fp365_draft");
+    localStorage.removeItem("fp365_entries");
+    render();
+  }
+
+  init().catch(err => {
+    console.error(err);
+    render();
+    showModal("Storage notice", "<p>The app opened, but device storage could not be initialized.</p>");
+  });
 })();
