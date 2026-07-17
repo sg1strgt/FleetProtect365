@@ -333,6 +333,13 @@
             <label class="file-label">Upload Photo<input id="extraUpload" type="file" accept="image/*" multiple></label>
           </div>
           <div id="extraStatus" class="status ${c.extra_photos.length ? "ok":"missing"}">${c.extra_photos.length} added</div>
+          <div id="extraPhotoList">
+            ${c.extra_photos.map((photo, i) => `
+              <div class="photo-item" style="margin-top:10px">
+                <img class="photo-preview expandable-photo" src="${photo.data_url}" alt="${esc(photo.name || `Additional photo ${i + 1}`)}" title="Tap to enlarge">
+                <button type="button" class="danger remove-extra" data-index="${i}" style="margin-top:8px">Remove Extra Photo</button>
+              </div>`).join("")}
+          </div>
         </div>
       </section>` : ""}
 
@@ -394,13 +401,20 @@
 
     const extraHandler = async e => {
       for (const file of [...(e.target.files || [])]) c.extra_photos.push(await fileRecord(file));
-      document.getElementById("extraStatus").textContent = `${c.extra_photos.length} added`;
-      document.getElementById("extraStatus").className = "status ok";
+      renderInspection();
     };
     const extraCamera = document.getElementById("extraCamera");
     const extraUpload = document.getElementById("extraUpload");
     if (extraCamera) extraCamera.onchange = extraHandler;
     if (extraUpload) extraUpload.onchange = extraHandler;
+
+    document.querySelectorAll(".remove-extra").forEach(button => {
+      button.onclick = () => {
+        const index = Number(button.dataset.index);
+        c.extra_photos.splice(index, 1);
+        renderInspection();
+      };
+    });
 
     document.getElementById("saveBtn").onclick = () => {
       syncCurrent();
@@ -437,7 +451,7 @@
   }
 
   async function fileRecord(file) {
-    const dataUrl = await compressImage(file, 960, 0.58);
+    const dataUrl = await compressImage(file, 720, 0.46);
     return { name: file.name || `photo-${Date.now()}.jpg`, size: file.size, type: file.type, data_url: dataUrl };
   }
 
@@ -541,7 +555,7 @@
         writeJson("fp365_entries", state.entries);
       } catch {
         state.entries.shift();
-        return showModal("Unable to save", "<p>The photos may be too large. Remove extra photos or use smaller images and try again.</p>");
+        return showModal("Unable to save", "<p>The photos could not be stored on this device. Remove an extra photo and try again.</p>");
       }
       state.draft = null;
       localStorage.removeItem("fp365_draft");
@@ -675,7 +689,7 @@
         submitted_by: name,
         employee_id: state.user?.employee_id || null,
         category, message,
-        app_version: cfg.APP_VERSION || "Driver v1.5",
+        app_version: cfg.APP_VERSION || "Driver v1.6",
         user_agent: navigator.userAgent,
         submitted_at: new Date().toISOString()
       };
