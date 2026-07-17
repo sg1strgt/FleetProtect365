@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.4.0";
+const CACHE_NAME = "fp365-driver-v1.5.0";
 
 const APP_FILES = [
   "./",

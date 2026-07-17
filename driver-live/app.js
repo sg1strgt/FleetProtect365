@@ -307,8 +307,12 @@
       <section class="card">
         <h2>Trip and equipment details</h2>
         <p class="field-help">Every field is required. Use the NA button where it legitimately does not apply.</p>
-        ${numericField("Truck number","truck",c.truck,"truckNumbers")}
-        <datalist id="truckNumbers">${TRUCKS.map(t => `<option value="${t}"></option>`).join("")}</datalist>
+        <label>Truck number</label>
+        <select id="truck">
+          <option value="">Select truck number</option>
+          ${TRUCKS.map(t => `<option value="${t}" ${c.truck === t ? "selected" : ""}>${t}</option>`).join("")}
+          <option value="NA" ${c.truck === "NA" ? "selected" : ""}>NA</option>
+        </select>
         ${c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
         ${c.type === "doubles" ? numericField("Dolly number","dolly",c.dolly) + numericField("Trailer 2 number","trailer2",c.trailer2) : ""}
         ${textField("Location From","from",c.from)}
@@ -374,6 +378,10 @@
       bypassBtn.className = "secondary";
     };
 
+    document.querySelectorAll(".expandable-photo").forEach(img => {
+      if (img.src) img.onclick = () => showPhoto(img.src, img.alt || "Photo");
+    });
+
     document.querySelectorAll(".required-photo").forEach(input => {
       input.onchange = async e => {
         const file = e.target.files?.[0];
@@ -420,7 +428,7 @@
       <div class="photo-item">
         <strong>${esc(label)}</strong>
         <div id="status-${index}" class="status ${record ? "ok":"missing"}">${record ? `Added: ${esc(record.name)}`:"Required"}</div>
-        ${record?.data_url ? `<img id="preview-${index}" class="photo-preview" src="${record.data_url}" alt="${esc(label)}">` : `<img id="preview-${index}" class="photo-preview" alt="${esc(label)}" style="display:none">`}
+        ${record?.data_url ? `<img id="preview-${index}" class="photo-preview expandable-photo" src="${record.data_url}" alt="${esc(label)}" title="Tap to enlarge">` : `<img id="preview-${index}" class="photo-preview expandable-photo" alt="${esc(label)}" style="display:none" title="Tap to enlarge">`}
         <div class="photo-actions">
           <label class="file-label">Take Photo<input class="required-photo" data-index="${index}" type="file" accept="image/*" capture="environment"></label>
           <label class="file-label">Upload Photo<input class="required-photo" data-index="${index}" type="file" accept="image/*"></label>
@@ -429,7 +437,7 @@
   }
 
   async function fileRecord(file) {
-    const dataUrl = await compressImage(file, 1280, 0.72);
+    const dataUrl = await compressImage(file, 960, 0.58);
     return { name: file.name || `photo-${Date.now()}.jpg`, size: file.size, type: file.type, data_url: dataUrl };
   }
 
@@ -464,6 +472,14 @@
     status.className = "status ok";
     preview.src = record.data_url;
     preview.style.display = "";
+    preview.onclick = () => showPhoto(record.data_url, record.name);
+  }
+
+  function showPhoto(src, name = "Photo") {
+    showModal(
+      name,
+      `<img src="${src}" alt="${esc(name)}" style="width:100%;height:auto;max-height:70vh;object-fit:contain;border-radius:14px">`
+    );
   }
 
   function syncCurrent() {
@@ -589,9 +605,12 @@
       ${photoItems.length ? `<section class="card"><h2>Photos</h2>
         ${photoItems.map((label,i) => {
           const photo = e.photos?.[i];
-          return `<div class="photo-item"><strong>${esc(label)}</strong>${photo?.data_url ? `<img class="photo-preview" src="${photo.data_url}" alt="${esc(label)}">` : `<p class="muted">No photo available.</p>`}</div>`;
+          return `<div class="photo-item"><strong>${esc(label)}</strong>${photo?.data_url ? `<img class="photo-preview expandable-photo" src="${photo.data_url}" alt="${esc(label)}" title="Tap to enlarge">` : `<p class="muted">No photo available.</p>`}</div>`;
         }).join("")}
       </section>` : ""}`;
+    document.querySelectorAll(".expandable-photo").forEach(img => {
+      img.onclick = () => showPhoto(img.src, img.alt || "Photo");
+    });
   }
 
   function detail(label, value) {
@@ -656,7 +675,7 @@
         submitted_by: name,
         employee_id: state.user?.employee_id || null,
         category, message,
-        app_version: cfg.APP_VERSION || "Driver v1.4",
+        app_version: cfg.APP_VERSION || "Driver v1.5",
         user_agent: navigator.userAgent,
         submitted_at: new Date().toISOString()
       };
