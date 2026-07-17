@@ -13,15 +13,8 @@
     : null;
 
   const TRUCKS = ["524656", "524657", "524658", "527549"];
-
-  const state = {
-    screen: "login",
-    history: [],
-    user: readJson("fp365_user", null),
-    draft: readJson("fp365_draft", null),
-    entries: readJson("fp365_entries", []),
-    current: null,
-    selectedEntry: null
+  const DRIVER_NAMES = {
+    "8739135": "Steven Arbucci"
   };
 
   const equipment = {
@@ -54,6 +47,17 @@
       ]
     },
     bobtail: { label: "Bobtail", photos: [] }
+  };
+
+  const state = {
+    screen: "login",
+    history: [],
+    user: readJson("fp365_user", null),
+    draft: readJson("fp365_draft", null),
+    entries: readJson("fp365_entries", []),
+    current: null,
+    selectedEntry: null,
+    pretripDone: false
   };
 
   const main = document.getElementById("main");
@@ -122,14 +126,14 @@
     const map = {
       login: renderLogin,
       home: renderHome,
+      pretrip: renderPreTrip,
       newEntry: renderNewEntry,
       inspection: renderInspection,
-      checklist: renderChecklist,
+      certification: renderCertification,
       entries: renderEntries,
       entryDetail: renderEntryDetail,
       endShift: renderEndShift,
-      feedback: renderFeedback,
-      profile: renderProfile
+      feedback: renderFeedback
     };
     (map[state.screen] || renderLogin)();
   }
@@ -144,7 +148,7 @@
       </section>
       <section class="card">
         <label>Employer ID</label>
-        <input id="employeeId" autocomplete="username" placeholder="Enter employer ID" />
+        <input id="employeeId" inputmode="numeric" autocomplete="username" placeholder="Enter employer ID" />
         <label>Password</label>
         <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
         <button id="loginBtn" class="primary" style="margin-top:16px">Log In</button>
@@ -160,16 +164,14 @@
       }
 
       const savedProfiles = readJson("fp365_profiles", {});
+      const knownName = DRIVER_NAMES[id];
       state.user = savedProfiles[id] || {
-        full_name: id === "demo" ? "Steven Arbucci" : `Driver ${id}`,
+        full_name: knownName || `Driver ${id}`,
         employee_id: id,
         phone: "",
-        email: "",
-        license_number: "",
-        license_state: "",
-        license_expiration: "",
-        medical_expiration: ""
+        email: id === "8739135" ? "steven@fleetprotect365.com" : ""
       };
+      if (knownName) state.user.full_name = knownName;
 
       writeJson("fp365_user", state.user);
       navigate("home", false);
@@ -181,24 +183,25 @@
 
   function renderHome() {
     header("Driver Home");
-    const name = state.user?.full_name || "Driver";
+    const name = state.user?.full_name || DRIVER_NAMES[state.user?.employee_id] || "Driver";
     main.innerHTML = `
       <section class="card hero">
         <span class="badge">Logged in</span>
         <h1>Welcome, ${esc(name)}</h1>
-        <p>Employer ID: ${esc(state.user?.employee_id || "")}</p>
       </section>
       ${state.draft ? `<div class="alert">You have a saved entry in progress.</div>` : ""}
       <section class="grid">
-        <button id="newBtn" class="choice"><strong>New Inspection</strong><span>Start a 53’, doubles, single pup, or bobtail entry</span></button>
+        <button id="newBtn" class="choice"><strong>New Inspection</strong><span>Begin with the required pre-trip checklist</span></button>
         ${state.draft ? `<button id="continueBtn" class="choice"><strong>Continue Saved Entry</strong><span>Resume your unfinished entry</span></button>` : ""}
         <button id="entriesBtn" class="choice"><strong>View Entries</strong><span>Open and review your submitted records</span></button>
-        <button id="profileBtn" class="choice"><strong>Driver Profile</strong><span>View or update your profile information</span></button>
         <button id="endBtn" class="choice"><strong>End of Shift</strong><span>Complete the checklist and finish your shift</span></button>
         <button id="logoutBtn" class="danger">Log Out</button>
       </section>`;
 
-    document.getElementById("newBtn").onclick = () => navigate("newEntry");
+    document.getElementById("newBtn").onclick = () => {
+      state.pretripDone = false;
+      navigate("pretrip");
+    };
     if (state.draft) {
       document.getElementById("continueBtn").onclick = () => {
         state.current = structuredClone(state.draft);
@@ -206,12 +209,39 @@
       };
     }
     document.getElementById("entriesBtn").onclick = () => navigate("entries");
-    document.getElementById("profileBtn").onclick = () => navigate("profile");
     document.getElementById("endBtn").onclick = () => navigate("endShift");
     document.getElementById("logoutBtn").onclick = () => navigate("endShift");
   }
 
+  function renderPreTrip() {
+    header("Quick Pre-Trip Checklist");
+    const items = [
+      "Walk-around inspection completed",
+      "Tires and wheels appear safe",
+      "Lights and reflectors checked",
+      "Brakes and air system checked",
+      "No visible leaks or unsafe defects",
+      "Required documents are available"
+    ];
+    main.innerHTML = `
+      <section class="card">
+        <h2>Complete before selecting equipment</h2>
+        <p class="field-help">Every item must be confirmed.</p>
+        ${items.map((x,i) => `<label class="check"><input class="pretrip-item" type="checkbox" data-i="${i}"><span>${esc(x)}</span></label>`).join("")}
+      </section>
+      <button id="pretripContinue" class="primary">Continue to Equipment</button>`;
+
+    document.getElementById("pretripContinue").onclick = () => {
+      if ([...document.querySelectorAll(".pretrip-item")].some(x => !x.checked)) {
+        return showModal("Pre-trip incomplete", "<p>Complete every pre-trip checklist item before continuing.</p>");
+      }
+      state.pretripDone = true;
+      navigate("newEntry");
+    };
+  }
+
   function renderNewEntry() {
+    if (!state.pretripDone) return navigate("pretrip", false);
     header("New Inspection");
     main.innerHTML = `
       <section class="card">
@@ -231,7 +261,7 @@
         state.current = {
           id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
           employee_id: state.user?.employee_id || "",
-          driver_name: state.user?.full_name || "",
+          driver_name: state.user?.full_name || DRIVER_NAMES[state.user?.employee_id] || "",
           type,
           created_at: new Date().toISOString(),
           truck: "",
@@ -252,9 +282,19 @@
     });
   }
 
-  function field(labelText, id, value, list = "") {
+  function textField(labelText, id, value, list = "") {
     const listAttr = list ? ` list="${list}"` : "";
     return `<label>${labelText}</label><input id="${id}"${listAttr} value="${esc(value)}" placeholder="${labelText} or NA" />`;
+  }
+
+  function numericField(labelText, id, value, list = "") {
+    const listAttr = list ? ` list="${list}"` : "";
+    return `
+      <label>${labelText}</label>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+        <input id="${id}"${listAttr} inputmode="numeric" pattern="[0-9]*" value="${esc(value)}" placeholder="${labelText}" />
+        <button type="button" class="secondary na-btn" data-target="${id}" style="width:auto;padding:12px 16px">NA</button>
+      </div>`;
   }
 
   function renderInspection() {
@@ -266,13 +306,13 @@
     main.innerHTML = `
       <section class="card">
         <h2>Trip and equipment details</h2>
-        <p class="field-help">Every field is required. Enter NA where it legitimately does not apply.</p>
-        ${field("Truck number","truck",c.truck,"truckNumbers")}
+        <p class="field-help">Every field is required. Use the NA button where it legitimately does not apply.</p>
+        ${numericField("Truck number","truck",c.truck,"truckNumbers")}
         <datalist id="truckNumbers">${TRUCKS.map(t => `<option value="${t}"></option>`).join("")}</datalist>
-        ${c.type !== "bobtail" ? field("Trailer 1 number","trailer1",c.trailer1) : ""}
-        ${c.type === "doubles" ? field("Dolly number","dolly",c.dolly) + field("Trailer 2 number","trailer2",c.trailer2) : ""}
-        ${field("Location From","from",c.from)}
-        ${field("Location To","to",c.to)}
+        ${c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
+        ${c.type === "doubles" ? numericField("Dolly number","dolly",c.dolly) + numericField("Trailer 2 number","trailer2",c.trailer2) : ""}
+        ${textField("Location From","from",c.from)}
+        ${textField("Location To","to",c.to)}
         <label>Notes</label>
         <textarea id="notes" placeholder="Enter notes or NA">${esc(c.notes)}</textarea>
       </section>
@@ -293,13 +333,14 @@
       </section>` : ""}
 
       <section class="card">
-        <div class="check">
-          <input id="bypass" type="checkbox" ${c.bypass ? "checked":""} />
-          <div><strong>Bypass a required item</strong><div class="field-help">Creates a red flag and requires an explanation.</div></div>
-        </div>
-        <div id="bypassWrap" style="${c.bypass ? "":"display:none"}">
+        <button id="bypassBtn" type="button" class="${c.bypass ? "danger" : "secondary"}" style="width:100%">
+          ${c.bypass ? "Bypass Active — Red Flag" : "Bypass Required Item"}
+        </button>
+        <div id="bypassWrap" style="${c.bypass ? "" : "display:none"};margin-top:12px">
+          <div class="alert"><strong>RED FLAG:</strong> An explanation is required and will be saved with this entry.</div>
           <label>Bypass explanation</label>
-          <textarea id="bypassReason">${esc(c.bypass_reason)}</textarea>
+          <textarea id="bypassReason" placeholder="Explain exactly what is being bypassed and why">${esc(c.bypass_reason)}</textarea>
+          <button id="cancelBypass" type="button" class="secondary">Cancel Bypass</button>
         </div>
       </section>
 
@@ -308,8 +349,29 @@
         <button id="nextBtn" class="primary">Continue</button>
       </div>`;
 
-    document.getElementById("bypass").onchange = e => {
-      document.getElementById("bypassWrap").style.display = e.target.checked ? "" : "none";
+    document.querySelectorAll(".na-btn").forEach(button => {
+      button.onclick = () => {
+        const input = document.getElementById(button.dataset.target);
+        input.value = "NA";
+        input.focus();
+      };
+    });
+
+    const bypassBtn = document.getElementById("bypassBtn");
+    bypassBtn.onclick = () => {
+      c.bypass = true;
+      document.getElementById("bypassWrap").style.display = "";
+      bypassBtn.textContent = "Bypass Active — Red Flag";
+      bypassBtn.className = "danger";
+      setTimeout(() => document.getElementById("bypassReason").focus(), 50);
+    };
+    document.getElementById("cancelBypass").onclick = () => {
+      c.bypass = false;
+      c.bypass_reason = "";
+      document.getElementById("bypassReason").value = "";
+      document.getElementById("bypassWrap").style.display = "none";
+      bypassBtn.textContent = "Bypass Required Item";
+      bypassBtn.className = "secondary";
     };
 
     document.querySelectorAll(".required-photo").forEach(input => {
@@ -323,13 +385,10 @@
     });
 
     const extraHandler = async e => {
-      for (const file of [...(e.target.files || [])]) {
-        c.extra_photos.push(await fileRecord(file));
-      }
+      for (const file of [...(e.target.files || [])]) c.extra_photos.push(await fileRecord(file));
       document.getElementById("extraStatus").textContent = `${c.extra_photos.length} added`;
       document.getElementById("extraStatus").className = "status ok";
     };
-
     const extraCamera = document.getElementById("extraCamera");
     const extraUpload = document.getElementById("extraUpload");
     if (extraCamera) extraCamera.onchange = extraHandler;
@@ -339,7 +398,11 @@
       syncCurrent();
       state.draft = structuredClone(state.current);
       writeJson("fp365_draft", state.draft);
-      showModal("Entry saved", "<p>You can return later using Continue Saved Entry.</p>");
+      state.current = null;
+      state.history = [];
+      state.screen = "home";
+      render();
+      showModal("Entry saved", "<p>Your entry was saved. Tap Continue Saved Entry to resume it.</p>");
     };
 
     document.getElementById("nextBtn").onclick = () => {
@@ -348,7 +411,7 @@
       if (missing.length) {
         return showModal("Complete required items", `<p>${missing.map(esc).join("<br>")}</p>`);
       }
-      navigate("checklist");
+      navigate("certification");
     };
   }
 
@@ -367,12 +430,7 @@
 
   async function fileRecord(file) {
     const dataUrl = await compressImage(file, 1280, 0.72);
-    return {
-      name: file.name || `photo-${Date.now()}.jpg`,
-      size: file.size,
-      type: file.type,
-      data_url: dataUrl
-    };
+    return { name: file.name || `photo-${Date.now()}.jpg`, size: file.size, type: file.type, data_url: dataUrl };
   }
 
   function compressImage(file, maxDimension, quality) {
@@ -390,8 +448,7 @@
           const canvas = document.createElement("canvas");
           canvas.width = width;
           canvas.height = height;
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, width, height);
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
           resolve(canvas.toDataURL("image/jpeg", quality));
         };
         img.src = reader.result;
@@ -415,25 +472,20 @@
       const el = document.getElementById(id);
       if (el) state.current[id] = el.value.trim();
     });
-    state.current.bypass = !!document.getElementById("bypass")?.checked;
     state.current.bypass_reason = document.getElementById("bypassReason")?.value.trim() || "";
   }
 
   function validateCurrent() {
     const c = state.current;
     const missing = [];
-    ["truck","from","to","notes"].forEach(k => {
-      if (!c[k]) missing.push(labelFor(k));
-    });
+    ["truck","from","to","notes"].forEach(k => { if (!c[k]) missing.push(labelFor(k)); });
     if (c.type !== "bobtail" && !c.trailer1) missing.push("Trailer 1 number");
     if (c.type === "doubles") {
       if (!c.dolly) missing.push("Dolly number");
       if (!c.trailer2) missing.push("Trailer 2 number");
     }
     if (!c.bypass) {
-      equipment[c.type].photos.forEach((label,i) => {
-        if (!c.photos[i]) missing.push(label);
-      });
+      equipment[c.type].photos.forEach((label,i) => { if (!c.photos[i]) missing.push(label); });
     } else if (!c.bypass_reason) {
       missing.push("Bypass explanation");
     }
@@ -441,16 +493,11 @@
   }
 
   function labelFor(key) {
-    return ({
-      truck: "Truck number",
-      from: "Location From",
-      to: "Location To",
-      notes: "Notes"
-    })[key] || key;
+    return ({ truck:"Truck number", from:"Location From", to:"Location To", notes:"Notes" })[key] || key;
   }
 
-  function renderChecklist() {
-    header("Quick Pre-Trip Checklist");
+  function renderCertification() {
+    header("Driver Certification");
     const items = [
       "Equipment numbers and locations are correct",
       "Connection points are secure",
@@ -459,10 +506,10 @@
       "Required photos are clear and complete",
       "This entry is complete and accurate"
     ];
-
     main.innerHTML = `
       <section class="card">
-        <h2>Driver certification</h2>
+        <h2>Final review</h2>
+        ${state.current?.bypass ? `<div class="alert"><strong>RED FLAG / BYPASS:</strong> ${esc(state.current.bypass_reason)}</div>` : ""}
         ${items.map((x,i) => `<label class="check"><input class="cert" type="checkbox" data-i="${i}"><span>${esc(x)}</span></label>`).join("")}
       </section>
       <button id="submitBtn" class="primary">Submit Entry</button>`;
@@ -471,25 +518,23 @@
       if ([...document.querySelectorAll(".cert")].some(x => !x.checked)) {
         return showModal("Certification required", "<p>Complete every checklist item before submitting.</p>");
       }
-
       state.current.certified = true;
       state.current.submitted_at = new Date().toISOString();
       state.entries.unshift(structuredClone(state.current));
-
       try {
         writeJson("fp365_entries", state.entries);
       } catch {
         state.entries.shift();
-        return showModal("Unable to save", "<p>The photos may be too large for this temporary test version. Remove extra photos or use smaller images and try again.</p>");
+        return showModal("Unable to save", "<p>The photos may be too large. Remove extra photos or use smaller images and try again.</p>");
       }
-
       state.draft = null;
       localStorage.removeItem("fp365_draft");
       state.current = null;
+      state.pretripDone = false;
       state.history = [];
       state.screen = "home";
       render();
-      showModal("Entry submitted", "<p>Your entry was submitted, the saved draft was removed, and you were returned Home.</p>");
+      showModal("Entry submitted", "<p>Your entry was submitted and you were returned Home.</p>");
     };
   }
 
@@ -501,20 +546,16 @@
   function renderEntries() {
     header("My Entries");
     const entries = driverEntries();
-
-    main.innerHTML = `
-      <section class="card">
-        <h2>Submitted entries</h2>
-        ${entries.length ? entries.map(e => `
-          <button class="entry open-entry" data-id="${esc(e.id)}">
-            <h3>${esc(equipment[e.type]?.label || e.type)}</h3>
-            <p>${esc(e.from)} → ${esc(e.to)}</p>
-            <p>Truck ${esc(e.truck)}${e.trailer1 ? ` • Trailer ${esc(e.trailer1)}`:""}</p>
-            <p>${new Date(e.submitted_at).toLocaleString()}</p>
-            ${e.bypass ? `<span class="badge" style="border-color:var(--danger);color:#ffd5d3">Red flag / bypass</span>`:""}
-          </button>`).join("") : `<p class="muted">No submitted entries yet.</p>`}
+    main.innerHTML = `<section class="card"><h2>Submitted entries</h2>
+      ${entries.length ? entries.map(e => `
+        <button class="entry open-entry" data-id="${esc(e.id)}">
+          <h3>${esc(equipment[e.type]?.label || e.type)}</h3>
+          <p>${esc(e.from)} → ${esc(e.to)}</p>
+          <p>Truck ${esc(e.truck)}${e.trailer1 ? ` • Trailer ${esc(e.trailer1)}`:""}</p>
+          <p>${new Date(e.submitted_at).toLocaleString()}</p>
+          ${e.bypass ? `<span class="badge" style="border-color:var(--danger);color:#ffd5d3">Red flag / bypass</span>`:""}
+        </button>`).join("") : `<p class="muted">No submitted entries yet.</p>`}
       </section>`;
-
     document.querySelectorAll(".open-entry").forEach(button => {
       button.onclick = () => {
         state.selectedEntry = entries.find(e => e.id === button.dataset.id) || null;
@@ -527,7 +568,6 @@
     const e = state.selectedEntry;
     if (!e) return navigate("entries", false);
     header("Entry Details");
-
     const photoItems = equipment[e.type]?.photos || [];
     main.innerHTML = `
       <section class="card">
@@ -546,9 +586,7 @@
           ${e.bypass ? detail("Red flag / bypass", e.bypass_reason) : ""}
         </div>
       </section>
-      ${photoItems.length ? `
-      <section class="card">
-        <h2>Photos</h2>
+      ${photoItems.length ? `<section class="card"><h2>Photos</h2>
         ${photoItems.map((label,i) => {
           const photo = e.photos?.[i];
           return `<div class="photo-item"><strong>${esc(label)}</strong>${photo?.data_url ? `<img class="photo-preview" src="${photo.data_url}" alt="${esc(label)}">` : `<p class="muted">No photo available.</p>`}</div>`;
@@ -569,7 +607,6 @@
       "Leave fuel card in the truck?"
     ];
     const todayCount = driverEntries().filter(e => new Date(e.submitted_at).toDateString() === new Date().toDateString()).length;
-
     main.innerHTML = `
       <section class="card">
         <h2>End-of-shift checklist</h2>
@@ -577,66 +614,16 @@
         ${items.map(x => `<label class="check"><input class="shift" type="checkbox"><span>${esc(x)}</span></label>`).join("")}
       </section>
       <button id="finishShift" class="success">Complete End of Shift</button>`;
-
     document.getElementById("finishShift").onclick = () => {
       if ([...document.querySelectorAll(".shift")].some(x => !x.checked)) {
         return showModal("Checklist incomplete", "<p>Every item must be confirmed before logging out.</p>");
       }
-
-      showModal(
-        "Have a good night.",
-        "<p>Your checklist is complete. Automatic PDF creation, email delivery, and Google Drive storage require the next Supabase backend update and are not being claimed as complete in this version.</p>"
-      );
-
+      showModal("Have a good night.", "<p>Your checklist is complete. PDF creation, email delivery, and Google Drive storage will be added in the reporting phase.</p>");
       localStorage.removeItem("fp365_user");
       state.user = null;
       state.history = [];
       state.screen = "login";
       setTimeout(render, 100);
-    };
-  }
-
-  function renderProfile() {
-    header("Driver Profile");
-    const u = state.user || {};
-    main.innerHTML = `
-      <section class="card">
-        <h2>Profile information</h2>
-        ${field("Full name","profileName",u.full_name || "")}
-        ${field("Employer ID","profileId",u.employee_id || "")}
-        ${field("Phone number","profilePhone",u.phone || "")}
-        ${field("Email address","profileEmail",u.email || "")}
-        ${field("Driver license number","profileLicense",u.license_number || "")}
-        ${field("License state","profileState",u.license_state || "")}
-        <label>Driver license expiration</label><input id="profileLicenseExpiration" type="date" value="${esc(u.license_expiration || "")}">
-        <label>Medical card expiration</label><input id="profileMedicalExpiration" type="date" value="${esc(u.medical_expiration || "")}">
-        <button id="saveProfile" class="primary" style="margin-top:16px">Save Profile</button>
-      </section>`;
-
-    document.getElementById("profileId").disabled = true;
-    document.getElementById("saveProfile").onclick = () => {
-      const updated = {
-        ...u,
-        full_name: document.getElementById("profileName").value.trim(),
-        employee_id: u.employee_id,
-        phone: document.getElementById("profilePhone").value.trim(),
-        email: document.getElementById("profileEmail").value.trim(),
-        license_number: document.getElementById("profileLicense").value.trim(),
-        license_state: document.getElementById("profileState").value.trim(),
-        license_expiration: document.getElementById("profileLicenseExpiration").value,
-        medical_expiration: document.getElementById("profileMedicalExpiration").value
-      };
-
-      if (!updated.full_name || !updated.email) {
-        return showModal("Missing information", "<p>Full name and email address are required.</p>");
-      }
-
-      state.user = updated;
-      writeJson("fp365_user", updated);
-      const profiles = readJson("fp365_profiles", {});
-      profiles[updated.employee_id] = updated;
-      writeJson("fp365_profiles", profiles);
-      showModal("Profile saved", "<p>Your profile was updated on this device.</p>");
     };
   }
 
@@ -658,37 +645,24 @@
         <p id="charCount" class="field-help">0 / 750</p>
         <button id="sendFeedback" class="primary">Submit</button>
       </section>`;
-
     const msg = document.getElementById("fbMessage");
-    msg.oninput = () => {
-      document.getElementById("charCount").textContent = `${msg.value.length} / 750`;
-    };
-
+    msg.oninput = () => document.getElementById("charCount").textContent = `${msg.value.length} / 750`;
     document.getElementById("sendFeedback").onclick = async () => {
       const name = document.getElementById("fbName").value.trim();
       const category = document.getElementById("fbCategory").value;
       const message = msg.value.trim();
-
-      if (!name || !message) {
-        return showModal("Missing information", "<p>Name and message are required.</p>");
-      }
-
+      if (!name || !message) return showModal("Missing information", "<p>Name and message are required.</p>");
       const payload = {
         submitted_by: name,
         employee_id: state.user?.employee_id || null,
-        category,
-        message,
-        app_version: cfg.APP_VERSION || "Driver v1.2",
+        category, message,
+        app_version: cfg.APP_VERSION || "Driver v1.4",
         user_agent: navigator.userAgent,
         submitted_at: new Date().toISOString()
       };
-
       try {
         if (!supabaseClient) throw new Error("Supabase is not configured in config.js.");
-        const { error } = await supabaseClient.functions.invoke(
-          cfg.FEEDBACK_FUNCTION || "send-feedback",
-          { body: payload }
-        );
+        const { error } = await supabaseClient.functions.invoke(cfg.FEEDBACK_FUNCTION || "send-feedback", { body: payload });
         if (error) throw error;
         showModal("Thank you", "<p>Your feedback was submitted successfully.</p>");
         msg.value = "";
