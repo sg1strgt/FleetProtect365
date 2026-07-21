@@ -1,260 +1,35 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Fleet Protect 365 — Admin Portal</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <aside class="sidebar">
-    <div class="brand">
-      <div class="brand-mark">FP</div>
-      <div><strong>Fleet Protect 365</strong><span>Admin Portal</span></div>
-    </div>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fleet Protect 365 Admin</title><link rel="stylesheet" href="./styles.css"></head><body>
+<div class="shell"><aside><img src="../assets/wfs-logo.svg" alt="WFS"><h2>Fleet Protect <span>365</span></h2><nav><button data-view="dashboard" class="active">Dashboard</button><button data-view="drivers">Drivers</button><button data-view="trucks">Trucks</button><button data-view="recipients">Recipients</button><button data-view="audit">Audit Trail</button><button data-view="settings">Settings</button></nav><button id="logout" class="hidden">Log out</button></aside>
+<main><header><div><h1 id="title">Super Admin Dashboard</h1><p id="session">Not signed in</p></div><b>Wade Freight Systems</b></header>
+<section id="login" class="view card"><h2>Admin Login</h2><label>Email</label><input id="email" type="email" value="steven@fleetprotect365.com"><label>Password</label><input id="password" type="password"><button id="loginBtn" class="primary">Log in</button><p id="loginMsg"></p></section>
+<section id="dashboard" class="view hidden"><div class="stats"><div><small>Users</small><strong id="userCount">—</strong></div><div><small>Trucks</small><strong id="truckCount">—</strong></div><div><small>Today’s Entries</small><strong id="entryCount">—</strong></div><div><small>Recipients</small><strong id="recipientCount">—</strong></div></div><div class="card"><h2>Driver Status</h2><div id="statusSummary"></div></div><div class="card"><h2>Recent Submissions</h2><div id="recentEntries"></div></div></section>
+<section id="drivers" class="view hidden"><div class="head"><h2>Drivers and Users</h2><div><button id="refreshDrivers">Refresh</button><button id="addDriver" class="primary">Add Driver</button></div></div><p id="driversMsg"></p><div class="table"><table><thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th>Status</th><th>Email</th><th>Action</th></tr></thead><tbody id="driversBody"></tbody></table></div></section>
+<section id="trucks" class="view hidden"><div class="head"><h2>Truck Assets</h2><button id="addTruck">Add Truck</button></div><div class="table"><table><thead><tr><th>Truck</th><th>Status</th><th>Action</th></tr></thead><tbody id="trucksBody"></tbody></table></div></section>
+<section id="recipients" class="view hidden"><div class="head"><h2>Report Recipients</h2><button id="addRecipient">Add Recipient</button></div><div class="table"><table><thead><tr><th>Name</th><th>Email</th><th>Type</th><th>End Shift</th><th>Status</th><th>Action</th></tr></thead><tbody id="recipientsBody"></tbody></table></div></section>
+<section id="audit" class="view hidden"><div class="head"><h2>Status Audit Trail</h2><button id="refreshAudit">Refresh</button></div><div id="auditList"></div></section>
+<section id="settings" class="view hidden"><div class="card"><h2>Company Settings</h2><label>Company Name</label><input id="companyName" disabled><label>Company Code</label><input id="companyCode" disabled><label>Google Drive Folder ID</label><input id="driveFolder"><label>Primary Contact</label><input id="contactName"><label>Contact Email</label><input id="contactEmail"><label>Contact Phone</label><input id="contactPhone"><button id="saveSettings" class="primary">Save</button><p id="settingsMsg"></p></div></section>
+</main></div>
 
-    <nav id="mainNav">
-      <button class="nav-item" data-page="dashboard"><span>▦</span> Dashboard</button>
-      <button class="nav-item active" data-page="drivers"><span>♙</span> Drivers</button>
-      <button class="nav-item" data-page="trucks"><span>▣</span> Trucks</button>
-      <button class="nav-item" data-page="dispatch"><span>◷</span> Dispatch Delays</button>
-      <button class="nav-item disabled" type="button"><span>▤</span> Reports</button>
-      <button class="nav-item disabled" type="button"><span>⚙</span> Settings</button>
-    </nav>
-  </aside>
+<dialog id="statusDialog"><form method="dialog"><h3>Change Status</h3><input id="statusUser" type="hidden"><label>New Status</label><select id="newStatus"><option>active</option><option>inactive</option><option>suspended</option><option>terminated</option></select><label>Reason</label><textarea id="statusReason"></textarea><div class="actions"><button value="cancel">Cancel</button><button id="saveStatus" class="primary" value="default">Save</button></div></form></dialog>
 
-  <main class="main">
-    <section id="dashboardPage" class="page hidden">
-      <header class="topbar">
-        <div><h1>Dashboard</h1><p>Fleet Protect 365 administration.</p></div>
-      </header>
-      <section class="summary-grid">
-        <article class="summary-card"><span>Drivers</span><strong id="dashboardDriverCount">0</strong></article>
-        <article class="summary-card"><span>Active Trucks</span><strong id="dashboardTruckCount">0</strong></article>
-        <article class="summary-card"><span>Frozen Drivers</span><strong id="dashboardFrozenCount">0</strong></article>
-        <article class="summary-card"><span>Out-of-Service Trucks</span><strong id="dashboardOosCount">0</strong></article>
-      </section>
-    </section>
+<dialog id="driverDialog"><form method="dialog" id="driverForm"><h3>Add Driver or User</h3>
+<label>Display Name</label><input id="driverDisplayName" required placeholder="First name">
+<label>Full Name</label><input id="driverFullName" required>
+<label>Employee ID</label><input id="driverEmployeeId" required inputmode="numeric">
+<label>Phone</label><input id="driverPhone" required type="tel">
+<label>Email</label><input id="driverEmail" required type="email">
+<label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select>
+<label>Status</label><select id="driverStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+<label>Temporary Password</label><input id="driverPassword" required type="password" minlength="8" placeholder="8+ letters/numbers, 1 capital">
+<details><summary>Optional compliance information</summary>
+<label>Driver License Number</label><input id="driverDlNumber">
+<label>License State</label><input id="driverDlState" maxlength="2">
+<label>License Expiration</label><input id="driverDlExpires" type="date">
+<label>Medical Card Expiration</label><input id="driverMedExpires" type="date">
+</details>
+<p id="driverFormMsg"></p>
+<div class="actions"><button value="cancel">Cancel</button><button id="saveDriver" class="primary" value="default">Create User</button></div></form></dialog>
 
-    <section id="driversPage" class="page">
-      <header class="topbar">
-        <div><h1>Drivers</h1><p>Manage driver and administrator records.</p></div>
-        <button id="addDriverBtn" class="primary-btn">+ Add Driver</button>
-      </header>
-
-      <section class="summary-grid">
-        <article class="summary-card"><span>Total</span><strong id="countAll">0</strong></article>
-        <article class="summary-card"><span>Active</span><strong id="countActive">0</strong></article>
-        <article class="summary-card"><span>Frozen</span><strong id="countFrozen">0</strong></article>
-        <article class="summary-card"><span>Suspended</span><strong id="countSuspended">0</strong></article>
-      </section>
-
-      <section class="panel">
-        <div class="toolbar">
-          <label class="search-box"><span>⌕</span><input id="driverSearchInput" type="search" placeholder="Search name, employee ID, phone, email..."></label>
-          <button id="exportDriversBtn" class="secondary-btn">Export CSV</button>
-        </div>
-
-        <div id="driverFilterTabs" class="filter-tabs">
-          <button class="filter-tab active" data-filter="all">All</button>
-          <button class="filter-tab" data-filter="active">Active</button>
-          <button class="filter-tab" data-filter="frozen">Frozen</button>
-          <button class="filter-tab" data-filter="suspended">Suspended</button>
-          <button class="filter-tab" data-filter="admin">Admins</button>
-          <button class="filter-tab" data-filter="driver">Drivers</button>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Driver</th><th>Edit</th><th>Employee ID</th><th>Role</th><th>Status</th><th>Phone</th><th>Email</th><th>Expirations</th></tr></thead>
-            <tbody id="driverTableBody"></tbody>
-          </table>
-        </div>
-        <div id="driverEmptyState" class="empty-state hidden"><h3>No matching records</h3><p>Add a driver or change the selected filter.</p></div>
-      </section>
-    </section>
-
-    <section id="trucksPage" class="page hidden">
-      <header class="topbar">
-        <div><h1>Trucks</h1><p>Manage tractor records used by drivers and dispatch.</p></div>
-        <button id="addTruckBtn" class="primary-btn">+ Add Truck</button>
-      </header>
-
-      <section class="summary-grid">
-        <article class="summary-card"><span>Total</span><strong id="truckCountAll">0</strong></article>
-        <article class="summary-card"><span>Active</span><strong id="truckCountActive">0</strong></article>
-        <article class="summary-card"><span>Maintenance</span><strong id="truckCountMaintenance">0</strong></article>
-        <article class="summary-card"><span>Out of Service</span><strong id="truckCountOos">0</strong></article>
-      </section>
-
-      <section class="panel">
-        <div class="toolbar">
-          <label class="search-box"><span>⌕</span><input id="truckSearchInput" type="search" placeholder="Search truck number, VIN, plate, make, model..."></label>
-          <button id="exportTrucksBtn" class="secondary-btn">Export CSV</button>
-        </div>
-
-        <div id="truckFilterTabs" class="filter-tabs">
-          <button class="filter-tab active" data-filter="all">All</button>
-          <button class="filter-tab" data-filter="active">Active</button>
-          <button class="filter-tab" data-filter="maintenance">Maintenance</button>
-          <button class="filter-tab" data-filter="out_of_service">Out of Service</button>
-          <button class="filter-tab" data-filter="inactive">Inactive</button>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Truck</th><th>Edit</th><th>Year / Make / Model</th><th>VIN</th><th>Plate</th><th>Status</th><th>Odometer</th><th>Compliance Dates</th></tr></thead>
-            <tbody id="truckTableBody"></tbody>
-          </table>
-        </div>
-        <div id="truckEmptyState" class="empty-state hidden"><h3>No matching trucks</h3><p>Add a truck or change the selected filter.</p></div>
-      </section>
-    </section>
-
-    <section id="dispatchPage" class="page hidden">
-      <header class="topbar">
-        <div><h1>Dispatch Delays</h1><p>Record scheduled and actual dispatch times. Delay duration calculates automatically.</p></div>
-        <button id="addDispatchBtn" class="primary-btn">+ Add Delay</button>
-      </header>
-
-      <section class="summary-grid">
-        <article class="summary-card"><span>Total Delays</span><strong id="dispatchCountAll">0</strong></article>
-        <article class="summary-card"><span>Today</span><strong id="dispatchCountToday">0</strong></article>
-        <article class="summary-card"><span>Total Minutes</span><strong id="dispatchMinutesTotal">0</strong></article>
-        <article class="summary-card"><span>Average Delay</span><strong id="dispatchMinutesAverage">0 min</strong></article>
-      </section>
-
-      <section class="panel">
-        <div class="toolbar">
-          <label class="search-box"><span>⌕</span><input id="dispatchSearchInput" type="search" placeholder="Search driver, employee ID, truck, trailer, reason..."></label>
-          <button id="exportDispatchBtn" class="secondary-btn">Export CSV</button>
-        </div>
-
-        <div class="table-wrap">
-          <table class="dispatch-table">
-            <thead><tr><th>Date</th><th>Edit</th><th>Driver</th><th>Employee ID</th><th>Truck</th><th>Trailer</th><th>Scheduled</th><th>Actual</th><th>Delay</th><th>Reason</th></tr></thead>
-            <tbody id="dispatchTableBody"></tbody>
-          </table>
-        </div>
-        <div id="dispatchEmptyState" class="empty-state hidden"><h3>No dispatch delays</h3><p>Add a delay or change the search.</p></div>
-      </section>
-    </section>
-
-  </main>
-
-  <dialog id="driverDialog">
-    <form id="driverForm">
-      <div class="dialog-header">
-        <div><h2 id="driverDialogTitle">Add Driver</h2><p>Fields marked with * are required.</p></div>
-        <button type="button" class="icon-btn" id="closeDriverDialogBtn">×</button>
-      </div>
-      <input type="hidden" id="driverId">
-      <div class="form-grid">
-        <label>First name *<input id="firstName" required maxlength="60"></label>
-        <label>Last name *<input id="lastName" required maxlength="60"></label>
-        <label>Employee ID *<input id="employeeId" required inputmode="numeric" maxlength="20"></label>
-        <label>Role *<select id="role"><option value="driver">Driver</option><option value="admin">Admin</option></select></label>
-        <label>Status *<select id="status"><option value="active">Active</option><option value="frozen">Frozen</option><option value="suspended">Suspended</option></select></label>
-        <label>Phone<input id="phone" type="tel" maxlength="25"></label>
-        <label class="wide">Email<input id="email" type="email" maxlength="120"></label>
-        <label>Driver license number<input id="licenseNumber" maxlength="50"></label>
-        <label>License state<input id="licenseState" maxlength="2"></label>
-        <label>License expiration<div class="date-entry" data-date-target="licenseExpiration"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="License expiration month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="License expiration day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="License expiration year"></div><input id="licenseExpiration" type="hidden"></label>
-        <label>Medical card expiration<div class="date-entry" data-date-target="medicalExpiration"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Medical card expiration month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Medical card expiration day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Medical card expiration year"></div><input id="medicalExpiration" type="hidden"></label>
-        <label class="wide">Notes<textarea id="notes" rows="4" maxlength="1000"></textarea></label>
-        <fieldset class="auth-section wide">
-          <legend>Authentication</legend>
-          <p class="auth-help">Generate a temporary password for this driver. The password is not active in the driver app until its login screen is connected in the next phase.</p>
-          <div class="auth-grid">
-            <label class="auth-password-field">Temporary password
-              <div class="auth-password-row"><input id="temporaryPassword" readonly autocomplete="off"><button type="button" class="secondary-btn" id="generateTemporaryPasswordBtn">Generate</button></div>
-            </label>
-            <label class="checkbox-label"><input id="mustChangePassword" type="checkbox"> Force password change at next login</label>
-            <label>Failed login attempts<input id="failedAttempts" value="0" readonly></label>
-            <label>Locked until<input id="lockedUntil" readonly placeholder="Not locked"></label>
-            <label>Last login<input id="lastLogin" readonly placeholder="Never"></label>
-          </div>
-          <button type="button" class="secondary-btn auth-reset-btn" id="resetAuthenticationBtn">Reset Failed Attempts &amp; Clear Lockout</button>
-        </fieldset>
-      </div>
-      <p id="driverFormError" class="form-error hidden"></p>
-      <div class="dialog-actions">
-        <button type="button" class="danger-btn hidden" id="deleteDriverBtn">Delete</button>
-        <div class="dialog-actions-right"><button type="button" class="secondary-btn" id="cancelDriverBtn">Cancel</button><button type="submit" class="primary-btn">Save Driver</button></div>
-      </div>
-    </form>
-  </dialog>
-
-  <dialog id="truckDialog">
-    <form id="truckForm">
-      <div class="dialog-header">
-        <div><h2 id="truckDialogTitle">Add Truck</h2><p>Truck number is required.</p></div>
-        <button type="button" class="icon-btn" id="closeTruckDialogBtn">×</button>
-      </div>
-      <input type="hidden" id="truckId">
-      <div class="form-grid">
-        <label>Truck number *<input id="truckNumber" required inputmode="numeric" maxlength="20"></label>
-        <label>Status *<select id="truckStatus"><option value="active">Active</option><option value="maintenance">Maintenance</option><option value="out_of_service">Out of Service</option><option value="inactive">Inactive</option></select></label>
-        <label>Year<input id="truckYear" inputmode="numeric" maxlength="4"></label>
-        <label>Make<input id="truckMake" maxlength="50"></label>
-        <label>Model<input id="truckModel" maxlength="50"></label>
-        <label>VIN<input id="truckVin" maxlength="17"></label>
-        <label>License plate<input id="truckPlate" maxlength="20"></label>
-        <label>Plate state<input id="truckPlateState" maxlength="2"></label>
-        <label>Current odometer<input id="truckOdometer" inputmode="numeric" maxlength="10"></label>
-        <label>Quarterly inspection<div class="date-entry" data-date-target="truckQuarterlyInspection"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Quarterly inspection month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Quarterly inspection day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Quarterly inspection year"></div><input id="truckQuarterlyInspection" type="hidden"></label><label>Annual inspection<div class="date-entry" data-date-target="truckAnnualInspection"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Annual inspection month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Annual inspection day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Annual inspection year"></div><input id="truckAnnualInspection" type="hidden"></label>
-        <label>Insurance<div class="date-entry" data-date-target="truckInsurance"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Insurance month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Insurance day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Insurance year"></div><input id="truckInsurance" type="hidden"></label>
-        <label class="wide">Notes<textarea id="truckNotes" rows="4" maxlength="1000"></textarea></label>
-      </div>
-      <p id="truckFormError" class="form-error hidden"></p>
-      <div class="dialog-actions">
-        <button type="button" class="danger-btn hidden" id="deleteTruckBtn">Delete</button>
-        <div class="dialog-actions-right"><button type="button" class="secondary-btn" id="cancelTruckBtn">Cancel</button><button type="submit" class="primary-btn">Save Truck</button></div>
-      </div>
-    </form>
-  </dialog>
-
-
-  <dialog id="dispatchDialog">
-    <form id="dispatchForm">
-      <div class="dialog-header">
-        <div><h2 id="dispatchDialogTitle">Add Dispatch Delay</h2><p>Dispatch date defaults to today.</p></div>
-        <button type="button" class="icon-btn" id="closeDispatchDialogBtn">×</button>
-      </div>
-      <input type="hidden" id="dispatchId">
-      <div class="form-grid">
-        <label>Dispatch date *<input id="dispatchDate" type="date" required></label>
-        <label>Driver *<select id="dispatchDriver" required><option value="">Select driver</option></select></label>
-        <label>Employee ID<input id="dispatchEmployeeId" readonly></label>
-        <label>Truck number *<select id="dispatchTruck" required><option value="">Select truck</option></select></label>
-        <label>Trailer number<input id="dispatchTrailer" inputmode="numeric" maxlength="20" placeholder="Manual entry or NA"></label>
-        <label>Scheduled dispatch *<input id="dispatchScheduled" type="time" required></label>
-        <label>Actual dispatch *<input id="dispatchActual" type="time" required></label>
-        <label>Delay duration<input id="dispatchDuration" readonly value="0 minutes"></label>
-        <label class="wide">Delay reason *<select id="dispatchReason" required>
-          <option value="">Select reason</option>
-          <option value="Trailer or dolly issue">Trailer or dolly issue</option>
-          <option value="Truck issue">Truck issue</option>
-          <option value="Shop delay">Shop delay</option>
-          <option value="Late freight">Late freight</option>
-          <option value="Weather">Weather</option>
-          <option value="Traffic">Traffic</option>
-          <option value="Driver delay">Driver delay</option>
-          <option value="Other">Other</option>
-        </select></label>
-        <label class="wide">Notes<textarea id="dispatchNotes" rows="4" maxlength="750" placeholder="Describe what caused the delay"></textarea></label>
-      </div>
-      <p id="dispatchFormError" class="form-error hidden"></p>
-      <div class="dialog-actions">
-        <button type="button" class="danger-btn hidden" id="deleteDispatchBtn">Delete</button>
-        <div class="dialog-actions-right">
-          <button type="button" class="secondary-btn" id="cancelDispatchBtn">Cancel</button>
-          <button type="submit" class="primary-btn">Save Delay</button>
-        </div>
-      </div>
-    </form>
-  </dialog>
-
-  <script src="app.js"></script>
-</body>
-</html>
+<dialog id="truckDialog"><form method="dialog"><h3>Add Truck</h3><input id="truckNumber" inputmode="numeric" placeholder="Truck number"><div class="actions"><button value="cancel">Cancel</button><button id="saveTruck" class="primary" value="default">Add</button></div></form></dialog>
+<dialog id="recipientDialog"><form method="dialog"><h3>Add Recipient</h3><input id="recipientName" placeholder="Display name"><input id="recipientEmail" type="email" placeholder="Email"><select id="recipientType"><option value="admin">Admin</option><option value="super_admin">Super Admin</option><option value="additional">Additional</option></select><div class="actions"><button value="cancel">Cancel</button><button id="saveRecipient" class="primary" value="default">Add</button></div></form></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script></body></html>
