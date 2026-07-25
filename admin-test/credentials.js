@@ -82,7 +82,7 @@
 
   function attachEditButtons() {
     document.querySelectorAll('#driversBody button[data-user]').forEach((statusButton) => {
-      statusButton.textContent = 'Status';
+      if (statusButton.textContent !== 'Status') statusButton.textContent = 'Status';
       if (statusButton.parentElement.querySelector('[data-credential-edit]')) return;
       const editButton = document.createElement('button');
       editButton.type = 'button';
