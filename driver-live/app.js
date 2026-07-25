@@ -176,6 +176,7 @@
   function render() {
     const map = {
       login: renderLogin,
+      passwordChange: renderPasswordChange,
       home: renderHome,
       pretrip: renderPreTrip,
       newEntry: renderNewEntry,
@@ -204,32 +205,95 @@
         <input id="password" type="password" autocomplete="current-password" placeholder="Enter password" />
         <button id="loginBtn" class="primary" style="margin-top:16px">Log In</button>
         <button id="forgotBtn" class="text-btn" style="width:100%;margin-top:8px">Forgot password?</button>
-        <p class="field-help">Testing mode currently accepts any employer ID and password.</p>
+        <p class="field-help">Use the Employee ID and password provided by your administrator.</p>
       </section>`;
 
-    document.getElementById("loginBtn").onclick = () => {
+    document.getElementById("loginBtn").onclick = async () => {
       const id = document.getElementById("employeeId").value.trim();
       const pass = document.getElementById("password").value;
       if (!id || !pass) {
         return showModal("Missing information", "<p>Employer ID and password are required.</p>");
       }
+      if (!supabaseClient) {
+        return showModal("Login unavailable", "<p>The secure login service is not configured.</p>");
+      }
 
-      const savedProfiles = readJson("fp365_profiles", {});
-      const knownName = DRIVER_NAMES[id];
-      state.user = savedProfiles[id] || {
-        full_name: knownName || `Driver ${id}`,
-        employee_id: id,
-        phone: "",
-        email: id === "8739135" ? "steven@fleetprotect365.com" : ""
-      };
-      if (knownName) state.user.full_name = knownName;
-
-      writeJson("fp365_user", state.user);
-      navigate("home", false);
+      const button = document.getElementById("loginBtn");
+      button.disabled = true;
+      button.textContent = "Logging in…";
+      try {
+        const { data, error } = await supabaseClient.functions.invoke("driver-auth", {
+          body: { action: "login", employeeId: id, password: pass }
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error || "Unable to log in.");
+        const { error: sessionError } = await supabaseClient.auth.setSession({
+          access_token: data.accessToken,
+          refresh_token: data.refreshToken
+        });
+        if (sessionError) throw sessionError;
+        state.user = data.profile;
+        writeJson("fp365_user", state.user);
+        navigate(data.mustChangePassword ? "passwordChange" : "home", false);
+      } catch (err) {
+        showModal("Login unsuccessful", `<p>${esc(err.message || String(err))}</p>`);
+        button.disabled = false;
+        button.textContent = "Log In";
+      }
     };
 
     document.getElementById("forgotBtn").onclick = () =>
       showModal("Password reset", "<p>Password reset will be connected to the company roster and Supabase Auth in the production release.</p>");
+  }
+
+  function renderPasswordChange() {
+    header("Create New Password");
+    main.innerHTML = `
+      <section class="card">
+        <h2>Temporary password accepted</h2>
+        <p>You must create a permanent password before continuing.</p>
+        <label>New password</label>
+        <input id="newPassword" type="password" autocomplete="new-password" placeholder="At least 8 letters and numbers" />
+        <label>Confirm new password</label>
+        <input id="confirmPassword" type="password" autocomplete="new-password" placeholder="Enter the password again" />
+        <p class="field-help">Use at least 8 letters and numbers, including one capital and one number. Do not use special characters or your Employee ID.</p>
+        <button id="changePasswordBtn" class="primary" style="margin-top:16px">Save New Password</button>
+      </section>`;
+
+    document.getElementById("changePasswordBtn").onclick = async () => {
+      const password = document.getElementById("newPassword").value;
+      const confirmation = document.getElementById("confirmPassword").value;
+      const employeeId = String(state.user?.employee_id || "");
+      const valid = password.length >= 8 &&
+        /[A-Z]/.test(password) &&
+        /[A-Za-z]/.test(password) &&
+        /\d/.test(password) &&
+        /^[A-Za-z0-9]+$/.test(password) &&
+        !password.toLowerCase().includes(employeeId.toLowerCase());
+      if (!valid) {
+        return showModal("Password not accepted", "<p>Use at least 8 letters and numbers, including one capital and one number. Do not use special characters or your Employee ID.</p>");
+      }
+      if (password !== confirmation) {
+        return showModal("Passwords do not match", "<p>Enter the same new password in both fields.</p>");
+      }
+
+      const button = document.getElementById("changePasswordBtn");
+      button.disabled = true;
+      button.textContent = "Saving…";
+      try {
+        const { data, error } = await supabaseClient.functions.invoke("driver-auth", {
+          body: { action: "change_password", password }
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error(data?.error || "Unable to change the password.");
+        navigate("home", false);
+        showModal("Password updated", "<p>Your permanent password is ready. Use it the next time you log in.</p>");
+      } catch (err) {
+        button.disabled = false;
+        button.textContent = "Save New Password";
+        showModal("Password was not changed", `<p>${esc(err.message || String(err))}</p>`);
+      }
+    };
   }
 
   function renderHome() {
@@ -764,6 +828,7 @@ function renderEndShift() {
           "Report emailed",
           `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to <strong>steven@fleetprotect365.com</strong>.</p><p>Have a good night.</p>`
         );
+        await supabaseClient.auth.signOut();
         localStorage.removeItem("fp365_user");
         state.user = null;
         state.history = [];
@@ -836,6 +901,14 @@ function renderEndShift() {
 
     localStorage.removeItem("fp365_draft");
     localStorage.removeItem("fp365_entries");
+    if (supabaseClient) {
+      const { data } = await supabaseClient.auth.getSession();
+      if (!data.session) {
+        state.user = null;
+        localStorage.removeItem("fp365_user");
+        state.screen = "login";
+      }
+    }
     render();
   }
 

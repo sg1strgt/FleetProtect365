@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.4-end-shift";
+const CACHE_NAME = "fp365-driver-v1.8-secure-login";
 
 const APP_FILES = [
   "./",
