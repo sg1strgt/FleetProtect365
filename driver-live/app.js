@@ -709,6 +709,10 @@ function renderEndShift() {
       return submitted.getFullYear() === now.getFullYear()
         && submitted.getMonth() === now.getMonth()
         && submitted.getDate() === now.getDate();
+    }).sort((a, b) => {
+      const aSubmitted = new Date(a.submitted_at || a.created_at).getTime();
+      const bSubmitted = new Date(b.submitted_at || b.created_at).getTime();
+      return aSubmitted - bSubmitted;
     });
 
     main.innerHTML = `
