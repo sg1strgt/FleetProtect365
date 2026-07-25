@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fleet Protect 365 Admin</title><link rel="stylesheet" href="./styles.css"></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Fleet Protect 365 Admin</title><link rel="stylesheet" href="./styles.css?v=20260725-3"></head><body>
 <div class="shell"><aside><img src="../assets/wfs-logo.svg" alt="WFS"><h2>Fleet Protect <span>365</span></h2><nav><button data-view="dashboard" class="active">Dashboard</button><button data-view="drivers">Drivers</button><button data-view="trucks">Trucks</button><button data-view="recipients">Recipients</button><button data-view="audit">Audit Trail</button><button data-view="settings">Settings</button></nav><button id="logout" class="hidden">Log out</button></aside>
 <main><header><div><h1 id="title">Super Admin Dashboard</h1><p id="session">Not signed in</p></div><b>Wade Freight Systems</b></header>
 <section id="login" class="view card"><h2>Admin Login</h2><label>Email</label><input id="email" type="email" value="steven@fleetprotect365.com"><label>Password</label><input id="password" type="password"><button id="loginBtn" class="primary">Log in</button><p id="loginMsg"></p></section>
@@ -65,4 +65,4 @@
 <p id="editUserMsg"></p>
 <div class="actions"><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
 </form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script><script src="./credentials.js"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>const fp365CreateClient=supabase.createClient.bind(supabase);supabase.createClient=(...args)=>{const client=fp365CreateClient(...args);if(!window.FP365_ADMIN_CLIENT)window.FP365_ADMIN_CLIENT=client;return client};</script><script src="./config.js?v=20260725-3"></script><script src="./app.js?v=20260725-3"></script><script src="./credentials.js?v=20260725-3"></script></body></html>

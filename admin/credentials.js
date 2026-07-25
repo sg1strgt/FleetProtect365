@@ -1,9 +1,15 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const config = window.FP365_ADMIN_CONFIG;
-  const client = supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, { auth: { persistSession: true } });
+  const client = window.FP365_ADMIN_CLIENT;
+  if (!client) throw new Error('Admin connection is unavailable. Refresh the page and try again.');
   let currentUser = null;
+
+  window.addEventListener('unhandledrejection', (event) => {
+    const message = event.reason?.message || String(event.reason || 'Unknown loading error');
+    const status = $('driversMsg');
+    if (status) status.textContent = `Unable to load driver records: ${message}`;
+  });
 
   const formatDateTime = (value) => value ? new Date(value).toLocaleString() : 'None';
   const validPassword = (password, employeeId) =>
