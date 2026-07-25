@@ -65,4 +65,36 @@
 <p id="editUserMsg"></p>
 <div class="actions"><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
 </form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js'"></script><script src="./config.js?v=20260725-5"></script><script src="./app.js?v=20260725-5"></script><script src="./credentials.js?v=20260725-5"></script></body></html>
+<script>
+(() => {
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = resolve;
+    script.onerror = () => reject(new Error(`Unable to load ${src}`));
+    document.body.appendChild(script);
+  });
+
+  const showStartupError = (error) => {
+    const message = document.createElement('div');
+    message.style.cssText = 'position:fixed;inset:auto 20px 20px 20px;z-index:99999;padding:16px;border-radius:10px;background:#7f1d1d;color:white;font:600 16px system-ui';
+    message.textContent = `Fleet Protect 365 could not start: ${error.message}`;
+    document.body.appendChild(message);
+  };
+
+  (async () => {
+    try {
+      try {
+        await loadScript('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js');
+      } catch {
+        await loadScript('https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js');
+      }
+      await loadScript('./config.js?v=20260725-6');
+      await loadScript('./app.js?v=20260725-6');
+      await loadScript('./credentials.js?v=20260725-6');
+    } catch (error) {
+      showStartupError(error);
+    }
+  })();
+})();
+</script></body></html>
