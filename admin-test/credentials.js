@@ -206,26 +206,10 @@
     try {
       $('deleteUser').disabled = true;
       $('editUserMsg').textContent = 'Deleting driver…';
-      await invoke({
-        action: 'update_user',
-        userId: currentUser.id,
-        displayName: currentUser.display_name || '',
-        fullName: currentUser.full_name || '',
-        employeeId: currentUser.employee_id || '',
-        phone: currentUser.phone || '',
-        email: currentUser.email || '',
-        role: currentUser.role,
-        status: 'terminated',
-        password: '',
-        forcePasswordChange: false,
-        driversLicenseNumber: currentUser.drivers_license_number || null,
-        driversLicenseState: currentUser.drivers_license_state || null,
-        driversLicenseExpires: currentUser.drivers_license_expires || null,
-        medicalCardExpires: currentUser.medical_card_expires || null
-      });
       const { error } = await client.from('employee_profiles').update({
         status: 'terminated',
-        deleted_at: new Date().toISOString()
+        deleted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }).eq('id', currentUser.id);
       if (error) throw error;
       $('editUserDialog').close();
