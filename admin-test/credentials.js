@@ -112,6 +112,27 @@
   };
   $('cancelDriver').onclick = () => $('driverDialog').close();
 
+  $('saveDriver').addEventListener('click', (event) => {
+    const requiredIds = [
+      'driverDisplayName', 'driverFullName', 'driverEmployeeId', 'driverPhone',
+      'driverEmail', 'driverRole', 'driverStatus', 'driverPassword',
+      'driverDlNumber', 'driverDlState', 'driverDlExpires', 'driverMedExpires'
+    ];
+    const missing = requiredIds.map($).find((field) => !String(field?.value || '').trim());
+    const passwordChangeRequired = $('forcePasswordChange').checked;
+    const formValid = $('driverForm').checkValidity();
+    if (!missing && passwordChangeRequired && formValid) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const field = missing || $('forcePasswordChange');
+    const details = field.closest('details');
+    if (details) details.open = true;
+    $('driverFormMsg').textContent =
+      'Complete every required field and keep “Require password change at next login” selected.';
+    if (!formValid && !missing && passwordChangeRequired) $('driverForm').reportValidity();
+    else field.focus();
+  }, true);
+
   $('editUnlockUser').onclick = async () => {
     try {
       $('editUserMsg').textContent = 'Clearing lockout…';

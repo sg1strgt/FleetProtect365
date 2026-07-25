@@ -14,27 +14,27 @@
 
 <dialog id="driverDialog"><form id="driverForm"><h3 id="driverDialogTitle">Add Driver or User</h3>
 <input id="driverUserId" type="hidden">
-<label>Display Name</label><input id="driverDisplayName" required placeholder="First name">
-<label>Full Name</label><input id="driverFullName" required>
-<label>Employee ID</label><input id="driverEmployeeId" required inputmode="numeric">
-<label>Phone</label><input id="driverPhone" required type="tel">
-<label>Email</label><input id="driverEmail" required type="email">
-<label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option></select>
-<label>Status</label><select id="driverStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+<label>Display Name *</label><input id="driverDisplayName" required placeholder="First name">
+<label>Full Name *</label><input id="driverFullName" required>
+<label>Employee ID *</label><input id="driverEmployeeId" required inputmode="numeric">
+<label>Phone *</label><input id="driverPhone" required type="tel">
+<label>Email *</label><input id="driverEmail" required type="email">
+<label>Role *</label><select id="driverRole" required><option value="driver">Driver</option><option value="admin">Admin</option></select>
+<label>Status *</label><select id="driverStatus" required><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
 <section class="auth-box">
 <h4>Authentication</h4>
 <label>Temporary Password <span id="passwordRequirement">(required for a new user)</span></label>
-<div class="password-row"><input id="driverPassword" type="text" minlength="8" autocomplete="new-password" placeholder="8+ letters/numbers, 1 capital"><button id="generatePassword" type="button">Generate</button></div>
+<div class="password-row"><input id="driverPassword" type="text" minlength="8" required autocomplete="new-password" placeholder="8+ letters/numbers, 1 capital"><button id="generatePassword" type="button">Generate</button></div>
 <small>At least 8 letters and numbers, including one capital and one number. No special characters or Employee ID.</small>
-<label class="check-row"><input id="forcePasswordChange" type="checkbox" checked> Require password change at next login</label>
+<label class="check-row"><input id="forcePasswordChange" type="checkbox" checked required> Require password change at next login</label>
 <div id="credentialStatus" class="credential-status hidden"></div>
 <button id="unlockUser" type="button" class="hidden">Clear lockout and failed attempts</button>
 </section>
-<details><summary>Optional compliance information</summary>
-<label>Driver License Number</label><input id="driverDlNumber">
-<label>License State</label><input id="driverDlState" maxlength="2">
-<label>License Expiration</label><input id="driverDlExpires" type="date">
-<label>Medical Card Expiration</label><input id="driverMedExpires" type="date">
+<details open><summary>Required compliance information</summary>
+<label>Driver License Number *</label><input id="driverDlNumber" required>
+<label>License State *</label><input id="driverDlState" maxlength="2" minlength="2" required>
+<label>License Expiration *</label><input id="driverDlExpires" type="date" required>
+<label>Medical Card Expiration *</label><input id="driverMedExpires" type="date" required>
 </details>
 <p id="driverFormMsg"></p>
 <div class="actions"><button id="cancelDriver" type="button">Cancel</button><button id="saveDriver" class="primary" type="submit">Create User</button></div></form></dialog>
@@ -65,4 +65,4 @@
 <p id="editUserMsg"></p>
 <div class="actions"><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
 </form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js?v=20260725-test-3"></script><script src="./app.js?v=20260725-test-3"></script><script src="./credentials.js?v=20260725-test-3"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js?v=20260725-test-4"></script><script src="./app.js?v=20260725-test-4"></script><script src="./credentials.js?v=20260725-test-4"></script></body></html>
