@@ -12,15 +12,24 @@
 
 <dialog id="statusDialog"><form method="dialog"><h3>Change Status</h3><input id="statusUser" type="hidden"><label>New Status</label><select id="newStatus"><option>active</option><option>inactive</option><option>suspended</option><option>terminated</option></select><label>Reason</label><textarea id="statusReason"></textarea><div class="actions"><button value="cancel">Cancel</button><button id="saveStatus" class="primary" value="default">Save</button></div></form></dialog>
 
-<dialog id="driverDialog"><form method="dialog" id="driverForm"><h3>Add Driver or User</h3>
+<dialog id="driverDialog"><form id="driverForm"><h3 id="driverDialogTitle">Add Driver or User</h3>
+<input id="driverUserId" type="hidden">
 <label>Display Name</label><input id="driverDisplayName" required placeholder="First name">
 <label>Full Name</label><input id="driverFullName" required>
 <label>Employee ID</label><input id="driverEmployeeId" required inputmode="numeric">
 <label>Phone</label><input id="driverPhone" required type="tel">
 <label>Email</label><input id="driverEmail" required type="email">
-<label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option><option value="super_admin">Super Admin</option></select>
+<label>Role</label><select id="driverRole"><option value="driver">Driver</option><option value="admin">Admin</option></select>
 <label>Status</label><select id="driverStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
-<label>Temporary Password</label><input id="driverPassword" required type="password" minlength="8" placeholder="8+ letters/numbers, 1 capital">
+<section class="auth-box">
+<h4>Authentication</h4>
+<label>Temporary Password <span id="passwordRequirement">(required for a new user)</span></label>
+<div class="password-row"><input id="driverPassword" type="text" minlength="8" autocomplete="new-password" placeholder="8+ letters/numbers, 1 capital"><button id="generatePassword" type="button">Generate</button></div>
+<small>At least 8 letters and numbers, including one capital and one number. No special characters or Employee ID.</small>
+<label class="check-row"><input id="forcePasswordChange" type="checkbox" checked> Require password change at next login</label>
+<div id="credentialStatus" class="credential-status hidden"></div>
+<button id="unlockUser" type="button" class="hidden">Clear lockout and failed attempts</button>
+</section>
 <details><summary>Optional compliance information</summary>
 <label>Driver License Number</label><input id="driverDlNumber">
 <label>License State</label><input id="driverDlState" maxlength="2">
@@ -28,8 +37,32 @@
 <label>Medical Card Expiration</label><input id="driverMedExpires" type="date">
 </details>
 <p id="driverFormMsg"></p>
-<div class="actions"><button value="cancel">Cancel</button><button id="saveDriver" class="primary" value="default">Create User</button></div></form></dialog>
+<div class="actions"><button id="cancelDriver" type="button">Cancel</button><button id="saveDriver" class="primary" type="submit">Create User</button></div></form></dialog>
 
 <dialog id="truckDialog"><form method="dialog"><h3>Add Truck</h3><input id="truckNumber" inputmode="numeric" placeholder="Truck number"><div class="actions"><button value="cancel">Cancel</button><button id="saveTruck" class="primary" value="default">Add</button></div></form></dialog>
 <dialog id="recipientDialog"><form method="dialog"><h3>Add Recipient</h3><input id="recipientName" placeholder="Display name"><input id="recipientEmail" type="email" placeholder="Email"><select id="recipientType"><option value="admin">Admin</option><option value="super_admin">Super Admin</option><option value="additional">Additional</option></select><div class="actions"><button value="cancel">Cancel</button><button id="saveRecipient" class="primary" value="default">Add</button></div></form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script></body></html>
+<dialog id="editUserDialog"><form id="editUserForm"><h3>Edit Driver or User</h3>
+<input id="editUserId" type="hidden">
+<label>Display Name</label><input id="editDisplayName" required>
+<label>Full Name</label><input id="editFullName" required>
+<label>Employee ID</label><input id="editEmployeeId" required inputmode="numeric">
+<label>Phone</label><input id="editPhone" required type="tel">
+<label>Email</label><input id="editEmail" required type="email">
+<label>Role</label><select id="editRole"><option value="driver">Driver</option><option value="admin">Admin</option></select>
+<label>Status</label><select id="editStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
+<label>Driver License Number</label><input id="editDlNumber">
+<label>License State</label><input id="editDlState" maxlength="2">
+<label>License Expiration</label><input id="editDlExpires" type="date">
+<label>Medical Card Expiration</label><input id="editMedExpires" type="date">
+<section class="auth-box"><h4>Authentication</h4>
+<label>New Temporary Password <span>(leave blank to keep the current password)</span></label>
+<div class="password-row"><input id="editPassword" type="text" minlength="8" autocomplete="new-password" placeholder="8+ letters/numbers, 1 capital"><button id="editGeneratePassword" type="button">Generate</button></div>
+<small>At least 8 letters and numbers, including one capital and one number. No special characters or Employee ID.</small>
+<label class="check-row"><input id="editForcePasswordChange" type="checkbox"> Require password change at next login</label>
+<div id="editCredentialStatus" class="credential-status"></div>
+<button id="editUnlockUser" type="button">Clear lockout and failed attempts</button>
+</section>
+<p id="editUserMsg"></p>
+<div class="actions"><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
+</form></dialog>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script src="./app.js"></script><script src="./credentials.js"></script></body></html>
