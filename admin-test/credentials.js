@@ -211,13 +211,11 @@
     try {
       $('deleteUser').disabled = true;
       $('editUserMsg').textContent = 'Deleting driver…';
-      const { data, error } = await client.from('employee_profiles').update({
-        status: 'terminated',
-        status_reason: 'Deleted from the admin portal',
-        updated_at: new Date().toISOString()
-      }).eq('id', currentUser.id).select('id,status').single();
-      if (error) throw error;
-      if (!data || data.status !== 'terminated') throw Error('The driver record was not changed. Please try again.');
+      await invoke({
+        action: 'delete_user',
+        userId: currentUser.id,
+        reason: 'Deleted from the admin portal'
+      });
       $('editUserDialog').close();
       $('refreshDrivers').click();
       $('driversMsg').textContent = `${name} was deleted from the active roster.`;
