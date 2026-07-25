@@ -137,6 +137,11 @@
 
   function attachEditButtons() {
     document.querySelectorAll('#driversBody button[data-user]').forEach((statusButton) => {
+      const row = statusButton.closest('tr');
+      if (row?.querySelector('.badge')?.textContent.trim().toLowerCase() === 'terminated') {
+        row.remove();
+        return;
+      }
       if (statusButton.textContent !== 'Status') statusButton.textContent = 'Status';
       if (statusButton.parentElement.querySelector('[data-credential-edit]')) return;
       const editButton = document.createElement('button');
@@ -206,12 +211,13 @@
     try {
       $('deleteUser').disabled = true;
       $('editUserMsg').textContent = 'Deleting driver…';
-      const { error } = await client.from('employee_profiles').update({
+      const { data, error } = await client.from('employee_profiles').update({
         status: 'terminated',
-        deleted_at: new Date().toISOString(),
+        status_reason: 'Deleted from the admin portal',
         updated_at: new Date().toISOString()
-      }).eq('id', currentUser.id);
+      }).eq('id', currentUser.id).select('id,status').single();
       if (error) throw error;
+      if (!data || data.status !== 'terminated') throw Error('The driver record was not changed. Please try again.');
       $('editUserDialog').close();
       $('refreshDrivers').click();
       $('driversMsg').textContent = `${name} was deleted from the active roster.`;
