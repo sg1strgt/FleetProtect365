@@ -33,6 +33,60 @@
     return password;
   }
 
+  function setDateValue(id, value = '') {
+    const hidden = $(id);
+    const group = document.querySelector(`[data-date-target="${id}"]`);
+    if (!hidden || !group) return;
+    hidden.value = value || '';
+    const [year = '', month = '', day = ''] = String(value || '').split('-');
+    group.querySelector('.mm').value = month;
+    group.querySelector('.dd').value = day;
+    group.querySelector('.yyyy').value = year;
+  }
+
+  function syncDateValue(group) {
+    const month = group.querySelector('.mm').value.padStart(2, '0');
+    const day = group.querySelector('.dd').value.padStart(2, '0');
+    const year = group.querySelector('.yyyy').value;
+    const hidden = $(group.dataset.dateTarget);
+    if (!month && !day && !year) {
+      hidden.value = '';
+      return;
+    }
+    if (month.length !== 2 || day.length !== 2 || year.length !== 4) {
+      hidden.value = '';
+      return;
+    }
+    const iso = `${year}-${month}-${day}`;
+    const date = new Date(`${iso}T12:00:00`);
+    hidden.value = !Number.isNaN(date.getTime()) &&
+      date.getFullYear() === Number(year) &&
+      date.getMonth() + 1 === Number(month) &&
+      date.getDate() === Number(day) ? iso : '';
+  }
+
+  function setupDateEntries() {
+    document.querySelectorAll('.date-entry').forEach((group) => {
+      const parts = [...group.querySelectorAll('.date-part')];
+      parts.forEach((input, index) => {
+        input.addEventListener('input', () => {
+          input.value = input.value.replace(/\D/g, '').slice(0, Number(input.maxLength));
+          syncDateValue(group);
+          if (input.value.length === Number(input.maxLength) && index < parts.length - 1) {
+            parts[index + 1].focus();
+          }
+        });
+        input.addEventListener('blur', () => {
+          if (index < 2 && input.value.length === 1) input.value = input.value.padStart(2, '0');
+          syncDateValue(group);
+        });
+        input.addEventListener('keydown', (event) => {
+          if (event.key === 'Backspace' && !input.value && index > 0) parts[index - 1].focus();
+        });
+      });
+    });
+  }
+
   async function invoke(body) {
     const { data, error } = await client.functions.invoke('manage-user', { body });
     if (error) throw error;
@@ -58,8 +112,8 @@
     $('editStatus').value = data.status || 'active';
     $('editDlNumber').value = data.drivers_license_number || '';
     $('editDlState').value = data.drivers_license_state || '';
-    $('editDlExpires').value = data.drivers_license_expires || '';
-    $('editMedExpires').value = data.medical_card_expires || '';
+    setDateValue('editDlExpires', data.drivers_license_expires || '');
+    setDateValue('editMedExpires', data.medical_card_expires || '');
     $('editPassword').value = '';
     $('editForcePasswordChange').checked = Boolean(data.password_reset_required || data.must_change_password);
 
@@ -71,6 +125,7 @@
       $('editRole').disabled = false;
       $('editRole').value = data.role;
     }
+    $('deleteUser').classList.toggle('hidden', data.role === 'super_admin');
 
     const failed = Math.max(Number(data.failed_login_count || 0), Number(data.failed_login_attempts || 0));
     $('editCredentialStatus').innerHTML =
@@ -144,6 +199,45 @@
     }
   };
 
+  $('deleteUser').onclick = async () => {
+    if (!currentUser || currentUser.role === 'super_admin') return;
+    const name = currentUser.full_name || currentUser.display_name || 'this driver';
+    if (!confirm(`Delete ${name}? The driver will be removed from the active roster and will no longer have active status.`)) return;
+    try {
+      $('deleteUser').disabled = true;
+      $('editUserMsg').textContent = 'Deleting driver…';
+      await invoke({
+        action: 'update_user',
+        userId: currentUser.id,
+        displayName: currentUser.display_name || '',
+        fullName: currentUser.full_name || '',
+        employeeId: currentUser.employee_id || '',
+        phone: currentUser.phone || '',
+        email: currentUser.email || '',
+        role: currentUser.role,
+        status: 'terminated',
+        password: '',
+        forcePasswordChange: false,
+        driversLicenseNumber: currentUser.drivers_license_number || null,
+        driversLicenseState: currentUser.drivers_license_state || null,
+        driversLicenseExpires: currentUser.drivers_license_expires || null,
+        medicalCardExpires: currentUser.medical_card_expires || null
+      });
+      const { error } = await client.from('employee_profiles').update({
+        status: 'terminated',
+        deleted_at: new Date().toISOString()
+      }).eq('id', currentUser.id);
+      if (error) throw error;
+      $('editUserDialog').close();
+      $('refreshDrivers').click();
+      $('driversMsg').textContent = `${name} was deleted from the active roster.`;
+    } catch (error) {
+      $('editUserMsg').textContent = error.message;
+    } finally {
+      $('deleteUser').disabled = false;
+    }
+  };
+
   $('cancelEditUser').onclick = () => $('editUserDialog').close();
   $('editUserForm').onsubmit = async (event) => {
     event.preventDefault();
@@ -189,4 +283,5 @@
       $('saveEditUser').disabled = false;
     }
   };
+  setupDateEntries();
 })();

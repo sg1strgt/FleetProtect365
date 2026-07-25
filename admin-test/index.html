@@ -33,8 +33,8 @@
 <details open><summary>Required compliance information</summary>
 <label>Driver License Number *</label><input id="driverDlNumber" required>
 <label>License State *</label><input id="driverDlState" maxlength="2" minlength="2" required>
-<label>License Expiration *</label><input id="driverDlExpires" type="date" required>
-<label>Medical Card Expiration *</label><input id="driverMedExpires" type="date" required>
+<label>License Expiration *</label><div class="date-entry" data-date-target="driverDlExpires"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="License expiration month" required><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="License expiration day" required><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="License expiration year" required></div><input id="driverDlExpires" type="hidden">
+<label>Medical Card Expiration *</label><div class="date-entry" data-date-target="driverMedExpires"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Medical card expiration month" required><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Medical card expiration day" required><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Medical card expiration year" required></div><input id="driverMedExpires" type="hidden">
 </details>
 <p id="driverFormMsg"></p>
 <div class="actions"><button id="cancelDriver" type="button">Cancel</button><button id="saveDriver" class="primary" type="submit">Create User</button></div></form></dialog>
@@ -52,8 +52,8 @@
 <label>Status</label><select id="editStatus"><option value="active">Active</option><option value="inactive">Inactive</option><option value="suspended">Suspended</option></select>
 <label>Driver License Number</label><input id="editDlNumber">
 <label>License State</label><input id="editDlState" maxlength="2">
-<label>License Expiration</label><input id="editDlExpires" type="date">
-<label>Medical Card Expiration</label><input id="editMedExpires" type="date">
+<label>License Expiration</label><div class="date-entry" data-date-target="editDlExpires"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="License expiration month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="License expiration day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="License expiration year"></div><input id="editDlExpires" type="hidden">
+<label>Medical Card Expiration</label><div class="date-entry" data-date-target="editMedExpires"><input class="date-part mm" inputmode="numeric" maxlength="2" placeholder="MM" aria-label="Medical card expiration month"><span>/</span><input class="date-part dd" inputmode="numeric" maxlength="2" placeholder="DD" aria-label="Medical card expiration day"><span>/</span><input class="date-part yyyy" inputmode="numeric" maxlength="4" placeholder="YYYY" aria-label="Medical card expiration year"></div><input id="editMedExpires" type="hidden">
 <section class="auth-box"><h4>Authentication</h4>
 <label>New Temporary Password <span>(leave blank to keep the current password)</span></label>
 <div class="password-row"><input id="editPassword" type="text" minlength="8" autocomplete="new-password" placeholder="8+ letters/numbers, 1 capital"><button id="editGeneratePassword" type="button">Generate</button></div>
@@ -63,6 +63,6 @@
 <button id="editUnlockUser" type="button">Clear lockout and failed attempts</button>
 </section>
 <p id="editUserMsg"></p>
-<div class="actions"><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
+<div class="actions"><button id="deleteUser" class="danger" type="button">Delete Driver</button><button id="cancelEditUser" type="button">Cancel</button><button id="saveEditUser" class="primary" type="submit">Save Changes</button></div>
 </form></dialog>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js?v=20260725-test-4"></script><script src="./app.js?v=20260725-test-4"></script><script src="./credentials.js?v=20260725-test-4"></script></body></html>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js?v=20260725-test-5"></script><script src="./app.js?v=20260725-test-5"></script><script src="./credentials.js?v=20260725-test-5"></script></body></html>
