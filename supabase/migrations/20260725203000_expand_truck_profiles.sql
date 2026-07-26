@@ -16,6 +16,14 @@ alter table public.trucks
   add column if not exists removed_by uuid references auth.users(id);
 
 alter table public.trucks alter column status type text using status::text;
+
+alter table public.trucks
+  drop constraint if exists trucks_status_check;
+
+alter table public.trucks
+  add constraint trucks_status_check
+  check (status in ('active', 'inactive', 'retired'));
+
 update public.trucks
 set status = 'inactive',
     status_reason = coalesce(status_reason, 'Converted from previous non-active status')
