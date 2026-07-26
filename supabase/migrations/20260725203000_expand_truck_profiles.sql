@@ -8,7 +8,18 @@ alter table public.trucks
   add column if not exists quarterly_inspection date,
   add column if not exists annual_inspection date,
   add column if not exists insurance_expiration date,
-  add column if not exists notes text;
+  add column if not exists notes text,
+  add column if not exists status_reason text,
+  add column if not exists status_changed_at timestamptz,
+  add column if not exists status_changed_by uuid references auth.users(id),
+  add column if not exists removed_at timestamptz,
+  add column if not exists removed_by uuid references auth.users(id);
+
+alter table public.trucks alter column status type text using status::text;
+update public.trucks
+set status = 'inactive',
+    status_reason = coalesce(status_reason, 'Converted from previous non-active status')
+where status in ('maintenance', 'out_of_service');
 
 create unique index if not exists trucks_company_vin_unique
   on public.trucks (company_id, upper(vin))

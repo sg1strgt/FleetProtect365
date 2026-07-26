@@ -12,7 +12,7 @@
     ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
     : null;
 
-  const TRUCKS = ["524656", "524657", "524658", "527549"];
+  let activeTrucks = [];
   const DRIVER_NAMES = {
     "8739135": "Steven Arbucci"
   };
@@ -116,6 +116,21 @@
   const backBtn = document.getElementById("backBtn");
   const homeBtn = document.getElementById("homeBtn");
   const modal = document.getElementById("modal");
+
+  async function loadActiveTrucks() {
+    if (!supabaseClient) {
+      activeTrucks = [];
+      return;
+    }
+    const { data, error } = await supabaseClient
+      .from("trucks")
+      .select("truck_number")
+      .eq("status", "active")
+      .is("deleted_at", null)
+      .order("truck_number");
+    if (error) throw error;
+    activeTrucks = (data || []).map(row => String(row.truck_number));
+  }
 
   function readJson(key, fallback) {
     try {
@@ -234,6 +249,7 @@
         if (sessionError) throw sessionError;
         state.user = data.profile;
         writeJson("fp365_user", state.user);
+        await loadActiveTrucks();
         navigate(data.mustChangePassword ? "passwordChange" : "home", false);
       } catch (err) {
         showModal("Login unsuccessful", `<p>${esc(err.message || String(err))}</p>`);
@@ -425,7 +441,7 @@
         <label>Truck number</label>
         <select id="truck">
           <option value="">Select truck number</option>
-          ${TRUCKS.map(t => `<option value="${t}" ${c.truck === t ? "selected" : ""}>${t}</option>`).join("")}
+          ${activeTrucks.map(t => `<option value="${t}" ${c.truck === t ? "selected" : ""}>${t}</option>`).join("")}
           <option value="NA" ${c.truck === "NA" ? "selected" : ""}>NA</option>
         </select>
         ${c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
@@ -907,6 +923,8 @@ function renderEndShift() {
         state.user = null;
         localStorage.removeItem("fp365_user");
         state.screen = "login";
+      } else {
+        await loadActiveTrucks();
       }
     }
     render();
