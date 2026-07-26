@@ -526,6 +526,44 @@ Deno.serve(async (req) => {
     }
 
     const result = await makePdf({ ...body, entries });
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const authHeader = req.headers.get("Authorization") || "";
+    if (!supabaseUrl || !serviceRoleKey || !authHeader.startsWith("Bearer ")) {
+      throw new Error("The central report archive is not configured.");
+    }
+    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+    const token = authHeader.slice(7);
+    const { data: authData, error: authError } = await serviceClient.auth.getUser(token);
+    if (authError || !authData.user) throw authError || new Error("Driver session is unavailable.");
+    const { data: profile, error: profileError } = await serviceClient
+      .from("employee_profiles").select("company_id").eq("id", authData.user.id).single();
+    if (profileError) throw profileError;
+
+    const { data: existingReport, error: existingReportError } = await serviceClient
+      .from("end_shift_reports")
+      .select("report_id, storage_path, email_status")
+      .eq("report_id", result.reportId)
+      .maybeSingle();
+    if (existingReportError) throw existingReportError;
+    if (existingReport?.email_status === "sent" && existingReport.storage_path) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          already_completed: true,
+          inspection_count: entries.length,
+          report_id: result.reportId,
+          generated_at: result.generatedAt
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    }
 
     let binary = "";
     const chunkSize = 0x8000;
@@ -590,19 +628,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const authHeader = req.headers.get("Authorization") || "";
-    if (!supabaseUrl || !serviceRoleKey || !authHeader.startsWith("Bearer ")) {
-      throw new Error("The central report archive is not configured.");
-    }
-    const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-    const token = authHeader.slice(7);
-    const { data: authData, error: authError } = await serviceClient.auth.getUser(token);
-    if (authError || !authData.user) throw authError || new Error("Driver session is unavailable.");
-    const { data: profile, error: profileError } = await serviceClient
-      .from("employee_profiles").select("company_id").eq("id", authData.user.id).single();
-    if (profileError) throw profileError;
     const storagePath = `${profile.company_id}/${authData.user.id}/${filename}`;
     const { error: uploadError } = await serviceClient.storage
       .from("end-shift-reports")

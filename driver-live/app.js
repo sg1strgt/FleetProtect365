@@ -521,7 +521,22 @@
     }
     document.getElementById("entriesBtn").onclick = () => navigate("entries");
     document.getElementById("endBtn").onclick = () => navigate("endShift");
-    document.getElementById("logoutBtn").onclick = () => navigate("endShift");
+    document.getElementById("logoutBtn").onclick = logoutDriver;
+  }
+
+  async function logoutDriver() {
+    try {
+      if (supabaseClient) await supabaseClient.auth.signOut();
+    } catch (error) {
+      console.warn("Supabase sign-out failed; clearing the local session.", error);
+    } finally {
+      localStorage.removeItem("fp365_user");
+      state.user = null;
+      state.history = [];
+      state.screen = "login";
+      if (modal.open) modal.close();
+      render();
+    }
   }
 
   function renderPreTrip() {
@@ -1054,9 +1069,10 @@ function renderEndShift() {
         button.disabled = false;
         button.textContent = "Email Report and Complete End of Shift";
         showModal(
-          "Email was not sent",
-          `<p>${esc(err.message || String(err))}</p><p>You remain logged in. Please try again.</p>`
+          "End of Shift could not be confirmed",
+          `<p>${esc(err.message || String(err))}</p><p>The report may have been delivered, but completion was not confirmed.</p><p>You can try again or log out now.</p><button type="button" id="endShiftErrorLogout" class="danger">Log Out Now</button>`
         );
+        document.getElementById("endShiftErrorLogout").onclick = logoutDriver;
       }
     };
   }
