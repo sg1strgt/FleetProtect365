@@ -614,13 +614,17 @@ Deno.serve(async (req) => {
     const { error: reportError } = await serviceClient.from("end_shift_reports").upsert({
       company_id: profile.company_id,
       driver_id: authData.user.id,
-      employee_id: employeeId,
       report_id: result.reportId,
-      shift_date: shiftDate,
+      report_date: shiftDate,
+      pdf_file_name: filename,
       storage_path: storagePath,
       inspection_ids: inspectionIds,
-      recipient_emails: recipients,
-      emailed_at: new Date().toISOString()
+      email_recipients: recipients,
+      email_status: "sent",
+      drive_status: "stored",
+      emailed_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+      error_message: null
     }, { onConflict: "report_id" });
     if (reportError) throw reportError;
 
