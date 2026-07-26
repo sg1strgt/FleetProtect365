@@ -13,3 +13,27 @@ alter table public.trucks
 create unique index if not exists trucks_company_vin_unique
   on public.trucks (company_id, upper(vin))
   where vin is not null and btrim(vin) <> '' and deleted_at is null;
+
+drop policy if exists "Admins can insert company trucks" on public.trucks;
+create policy "Admins can insert company trucks"
+  on public.trucks
+  for insert
+  to authenticated
+  with check (
+    company_id = current_company_id()
+    and current_user_role() in ('admin'::user_role, 'super_admin'::user_role)
+  );
+
+drop policy if exists "Admins can update company trucks" on public.trucks;
+create policy "Admins can update company trucks"
+  on public.trucks
+  for update
+  to authenticated
+  using (
+    company_id = current_company_id()
+    and current_user_role() in ('admin'::user_role, 'super_admin'::user_role)
+  )
+  with check (
+    company_id = current_company_id()
+    and current_user_role() in ('admin'::user_role, 'super_admin'::user_role)
+  );
