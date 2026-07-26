@@ -93,27 +93,38 @@
     });
   }
 
-  function applyCreateRoleRequirements() {
-    const requiresCompliance = $('driverRole').value === 'driver';
-    ['driverDlNumber', 'driverDlState'].forEach((id) => {
-      $(id).required = requiresCompliance;
-    });
-    document.querySelectorAll(
-      '[data-date-target="driverDlExpires"] .date-part, [data-date-target="driverMedExpires"] .date-part'
-    ).forEach((input) => {
-      input.required = requiresCompliance;
-    });
-    $('driverComplianceSummary').textContent = requiresCompliance
-      ? 'Required compliance information'
-      : 'Optional compliance information';
-    if (!requiresCompliance) $('driverComplianceDetails').open = false;
-  }
-
   async function invoke(body) {
     const { data, error } = await client.functions.invoke('manage-user', { body });
-    if (error) throw error;
+    if (error) {
+      let message = error.message || 'Unable to update user.';
+      try {
+        const response = error.context;
+        if (response?.clone) {
+          const payload = await response.clone().json();
+          message = payload?.error || payload?.message || message;
+        }
+      } catch {
+        // Keep the original message when the response has no JSON body.
+      }
+      throw new Error(message);
+    }
     if (!data?.ok) throw Error(data?.error || 'Unable to update user.');
     return data;
+  }
+
+  function applyCreateRoleRequirements() {
+    const isDriver = $('driverRole').value === 'driver';
+    const complianceFields = [
+      $('driverDlNumber'),
+      $('driverDlState'),
+      ...document.querySelectorAll(
+        '[data-date-target="driverDlExpires"] .date-part, [data-date-target="driverMedExpires"] .date-part'
+      )
+    ];
+    complianceFields.forEach((field) => { field.required = isDriver; });
+    $('driverComplianceSummary').textContent =
+      isDriver ? 'Required compliance information' : 'Optional compliance information';
+    if (!isDriver) $('driverComplianceDetails').open = false;
   }
 
   async function openEditor(userId) {
@@ -263,14 +274,11 @@
     $('driverPassword').value = generatePassword($('driverEmployeeId').value.trim());
     $('forcePasswordChange').checked = true;
   };
-  $('driverRole').addEventListener('change', applyCreateRoleRequirements);
-  $('addDriver').addEventListener('click', () => {
-    setTimeout(applyCreateRoleRequirements, 0);
-  });
   $('cancelDriver').onclick = () => $('driverDialog').close();
 
-  $('saveDriver').addEventListener('click', (event) => {
-    applyCreateRoleRequirements();
+  $('saveDriver').addEventListener('click', async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
     const requiredIds = [
       'driverDisplayName', 'driverFullName', 'driverEmployeeId', 'driverPhone',
       'driverEmail', 'driverRole', 'driverStatus', 'driverPassword'
@@ -281,16 +289,59 @@
     const missing = requiredIds.map($).find((field) => !String(field?.value || '').trim());
     const passwordChangeRequired = $('forcePasswordChange').checked;
     const formValid = $('driverForm').checkValidity();
-    if (!missing && passwordChangeRequired && formValid) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    const field = missing || $('forcePasswordChange');
-    const details = field.closest('details');
-    if (details) details.open = true;
-    $('driverFormMsg').textContent =
-      'Complete every required field and keep “Require password change at next login” selected.';
-    if (!formValid && !missing && passwordChangeRequired) $('driverForm').reportValidity();
-    else field.focus();
+    if (missing || !passwordChangeRequired || !formValid) {
+      const field = missing || $('forcePasswordChange');
+      const details = field.closest('details');
+      if (details) details.open = true;
+      $('driverFormMsg').textContent =
+        'Complete every required field and keep “Require password change at next login” selected.';
+      if (!formValid && !missing && passwordChangeRequired) $('driverForm').reportValidity();
+      else field.focus();
+      return;
+    }
+
+    const employeeId = $('driverEmployeeId').value.trim();
+    const password = $('driverPassword').value;
+    if (!validPassword(password, employeeId)) {
+      $('driverFormMsg').textContent =
+        'Password must be 8+ letters/numbers, include a capital and a number, use no special characters, and not contain the Employee ID.';
+      return;
+    }
+
+    const body = {
+      action: 'create_user',
+      displayName: $('driverDisplayName').value.trim(),
+      fullName: $('driverFullName').value.trim(),
+      employeeId,
+      phone: $('driverPhone').value.trim(),
+      email: $('driverEmail').value.trim().toLowerCase(),
+      role: $('driverRole').value,
+      status: $('driverStatus').value,
+      password,
+      forcePasswordChange: true,
+      driversLicenseNumber: $('driverDlNumber').value.trim() || null,
+      driversLicenseState: $('driverDlState').value.trim().toUpperCase() || null,
+      driversLicenseExpires: $('driverDlExpires').value || null,
+      medicalCardExpires: $('driverMedExpires').value || null
+    };
+
+    try {
+      $('saveDriver').disabled = true;
+      $('driverFormMsg').textContent = 'Creating user…';
+      await invoke(body);
+      $('driverFormMsg').textContent = 'User created successfully.';
+      setTimeout(() => {
+        $('driverDialog').close();
+        $('driverForm').reset();
+        applyCreateRoleRequirements();
+        $('refreshDrivers').click();
+        $('driversMsg').textContent = 'User created successfully.';
+      }, 600);
+    } catch (error) {
+      $('driverFormMsg').textContent = error.message;
+    } finally {
+      $('saveDriver').disabled = false;
+    }
   }, true);
 
   $('editUnlockUser').onclick = async () => {
@@ -372,6 +423,8 @@
       $('saveEditUser').disabled = false;
     }
   };
+  $('driverRole').addEventListener('change', applyCreateRoleRequirements);
+  $('addDriver').addEventListener('click', () => setTimeout(applyCreateRoleRequirements, 0));
   setupDateEntries();
   applyCreateRoleRequirements();
 })();
