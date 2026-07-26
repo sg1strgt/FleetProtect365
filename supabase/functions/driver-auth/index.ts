@@ -51,7 +51,7 @@ export default {
 
         const { data: profile, error: profileError } = await admin
           .from("employee_profiles")
-          .select("id, full_name, display_name, employee_id, email, phone, role, status, password_reset_required, failed_login_count, deleted_at")
+          .select("id, full_name, display_name, employee_id, email, phone, role, status, is_tester, password_reset_required, failed_login_count, deleted_at")
           .eq("employee_id", employeeId)
           .maybeSingle();
         if (profileError || !profile || profile.deleted_at) {
@@ -59,6 +59,9 @@ export default {
         }
         if (profile.status !== "active") {
           return json({ ok: false, error: "This account is not active. Contact an administrator." });
+        }
+        if (profile.role === "user") {
+          return json({ ok: false, error: "This account does not have Driver App access." });
         }
 
         const failed = Number(profile.failed_login_count || 0);
@@ -104,6 +107,7 @@ export default {
             phone: profile.phone,
             role: profile.role,
             status: profile.status,
+            is_tester: Boolean(profile.is_tester),
           },
         });
       }

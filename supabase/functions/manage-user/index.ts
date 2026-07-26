@@ -73,7 +73,7 @@ export default {
       if (!displayName || !fullName || !employeeId || !phone || !email || !password) {
         return json({ ok: false, error: "Complete all required fields." }, 400);
       }
-      if (!["driver", "admin"].includes(role)) return json({ ok: false, error: "Invalid role." }, 400);
+      if (!["driver", "user", "admin"].includes(role)) return json({ ok: false, error: "Invalid role." }, 400);
       if (!["active", "inactive", "suspended"].includes(status)) {
         return json({ ok: false, error: "Invalid status." }, 400);
       }
@@ -108,7 +108,8 @@ export default {
         email,
         role,
         status,
-        title: role === "admin" ? "Admin" : "Driver",
+        title: role === "admin" ? "Admin" : role === "user" ? "User" : "Driver",
+        is_tester: callerProfile.role === "super_admin" && Boolean(body.isTester),
         password_reset_required: true,
         failed_login_count: 0,
         drivers_license_number: body.driversLicenseNumber || null,
@@ -198,7 +199,7 @@ export default {
       if (!displayName || !fullName || !employeeId || !phone || !email) {
         return json({ ok: false, error: "Complete all required fields." }, 400);
       }
-      if (!["driver", "admin", "super_admin"].includes(role)) {
+      if (!["driver", "user", "admin", "super_admin"].includes(role)) {
         return json({ ok: false, error: "Invalid role." }, 400);
       }
       if (!["active", "inactive", "suspended", "terminated"].includes(status)) {
@@ -226,7 +227,7 @@ export default {
         email,
         role,
         status,
-        title: role === "super_admin" ? "Super Admin" : role === "admin" ? "Admin" : "Driver",
+        title: role === "super_admin" ? "Super Admin" : role === "admin" ? "Admin" : role === "user" ? "User" : "Driver",
         drivers_license_number: body.driversLicenseNumber || null,
         drivers_license_state: body.driversLicenseState || null,
         drivers_license_expires: body.driversLicenseExpires || null,
@@ -237,6 +238,9 @@ export default {
       if (password) {
         updates.password_reset_required = Boolean(body.forcePasswordChange);
         updates.failed_login_count = 0;
+      }
+      if (callerProfile.role === "super_admin" && typeof body.isTester === "boolean") {
+        updates.is_tester = body.isTester;
       }
       const { error } = await admin.from("employee_profiles").update(updates).eq("id", userId);
       if (error) return json({ ok: false, error: error.message }, 400);
