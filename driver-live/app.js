@@ -906,10 +906,10 @@
       try {
         await syncInspection(state.entries[0]);
         await dbSet("entries", state.entries);
-        showModal("Entry submitted", "<p>Your entry was saved and is now available in the Admin Portal.</p>");
+        showModal("Entry submitted", "<p>Your inspection was submitted successfully.</p>");
       } catch (error) {
         console.warn("Inspection sync pending:", error);
-        showModal("Entry saved", "<p>Your entry is safe on this device. It will be sent to the Admin Portal automatically when the connection is available.</p>");
+        showModal("Entry saved", "<p>Your inspection is safe on this device and will submit automatically when the connection is available.</p>");
       }
     };
   }
