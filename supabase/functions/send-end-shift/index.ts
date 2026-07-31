@@ -26,6 +26,51 @@ type RequestBody = {
   time_zone?: string; end_shift_completed_at?: string;
 };
 
+async function cleanupExpiredSupabasePdfs(
+  serviceClient: ReturnType<typeof createClient>
+): Promise<number> {
+  const retentionMessage = "Supabase PDF removed after the 30-day retention period.";
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: expiredReports, error: listError } = await serviceClient
+    .from("end_shift_reports")
+    .select("id, storage_path")
+    .eq("drive_status", "uploaded")
+    .lt("created_at", cutoff)
+    .not("storage_path", "is", null)
+    .or(`error_message.is.null,error_message.neq.${retentionMessage}`)
+    .limit(100);
+
+  if (listError) throw listError;
+  if (!expiredReports?.length) return 0;
+
+  let removed = 0;
+  for (const report of expiredReports) {
+    const storagePath = String(report.storage_path || "").trim();
+    if (!storagePath) continue;
+
+    const { error: removeError } = await serviceClient.storage
+      .from("end-shift-reports")
+      .remove([storagePath]);
+    if (removeError) {
+      console.error(`Retention cleanup failed for ${storagePath}:`, removeError.message);
+      continue;
+    }
+
+    const { error: updateError } = await serviceClient
+      .from("end_shift_reports")
+      .update({
+        error_message: retentionMessage
+      })
+      .eq("id", report.id);
+    if (updateError) {
+      console.error(`Retention metadata update failed for ${storagePath}:`, updateError.message);
+    }
+    removed += 1;
+  }
+
+  return removed;
+}
+
 function safe(value: unknown, fallback = "Not provided"): string {
   const text = String(value ?? "").trim();
   return text || fallback;
@@ -801,6 +846,16 @@ Deno.serve(async (req) => {
     }, { onConflict: "report_id" });
     if (reportError) throw reportError;
 
+    let retentionRemoved = 0;
+    try {
+      retentionRemoved = await cleanupExpiredSupabasePdfs(serviceClient);
+    } catch (error) {
+      console.error(
+        "Supabase PDF retention cleanup failed:",
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+
     return new Response(
       JSON.stringify({
         ok: true,
@@ -811,7 +866,8 @@ Deno.serve(async (req) => {
         email_id: resendResult?.id || null,
         filename,
         drive_archived: Boolean(driveFile),
-        drive_warning: driveError
+        drive_warning: driveError,
+        retention_removed: retentionRemoved
       }),
       {
         status: 200,
