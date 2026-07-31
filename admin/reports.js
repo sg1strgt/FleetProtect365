@@ -87,7 +87,17 @@
     });
     button.disabled = false;
     if (error || !data?.ok) {
-      $('forwardReportMsg').textContent = data?.error || error?.message || 'Unable to send the report.';
+      let details = data;
+      if (!details && error?.context && typeof error.context.json === 'function') {
+        try {
+          details = await error.context.json();
+        } catch {
+          details = null;
+        }
+      }
+      const stage = details?.stage ? ` (${details.stage})` : '';
+      $('forwardReportMsg').textContent =
+        `${details?.error || error?.message || 'Unable to send the report.'}${stage}`;
       return;
     }
     $('forwardReportMsg').textContent = `Report emailed to ${data.recipient}.`;
