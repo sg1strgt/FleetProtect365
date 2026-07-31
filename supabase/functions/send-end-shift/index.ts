@@ -692,6 +692,8 @@ Deno.serve(async (req) => {
     }
     const emailAlreadySent =
       existingReport?.email_status === "sent" && sameInspections;
+    const isUpdatedReport =
+      existingReport?.email_status === "sent" && !sameInspections;
 
     let binary = "";
     const chunkSize = 0x8000;
@@ -735,9 +737,14 @@ Deno.serve(async (req) => {
             from: fromEmail,
             to: recipients,
             subject:
-              `${result.reportId} — End-of-Shift Report — ${driverName}`,
+              isUpdatedReport
+                ? `UPDATED — ${result.reportId} — End-of-Shift Report — ${driverName}`
+                : `${result.reportId} — End-of-Shift Report — ${driverName}`,
             html: `
-              <h2>Fleet Protect 365 End-of-Shift Report</h2>
+              <h2>${isUpdatedReport ? "UPDATED " : ""}Fleet Protect 365 End-of-Shift Report</h2>
+              ${isUpdatedReport
+                ? "<p><strong>This updated report replaces the previous copy sent for this driver and shift date.</strong></p>"
+                : ""}
               <p><strong>Company:</strong> ${safe(body.company_name, COMPANY_NAME)}</p>
               <p><strong>Driver:</strong> ${driverName}</p>
               <p><strong>Employee ID:</strong> ${employeeId}</p>
