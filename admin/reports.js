@@ -65,6 +65,7 @@
   });
   $('refreshReports').onclick = loadReports;
   $('reportsSearch').oninput = renderReports;
+  $('cancelRecipient').onclick = () => $('recipientDialog').close();
   $('reportsBody').onclick = (event) => {
     const download = event.target.closest('[data-download-report]');
     if (download) return openReport(download.dataset.downloadReport, download);
