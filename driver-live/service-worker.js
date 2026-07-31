@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.9.2-submit-message-1";
+const CACHE_NAME = "fp365-driver-v1.9.3-submit-message-2";
 
 const APP_FILES = [
   "./",

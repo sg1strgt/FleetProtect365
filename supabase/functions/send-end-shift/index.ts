@@ -114,6 +114,110 @@ function formatDateTime(value: unknown, timeZone: string): string {
   }).format(date);
 }
 
+async function googleDriveAccessToken(): Promise<string> {
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
+  const refreshToken = Deno.env.get("GOOGLE_REFRESH_TOKEN");
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error("Google Drive credentials are not configured.");
+  }
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token"
+    })
+  });
+  const result = await response.json();
+
+  if (!response.ok || !result?.access_token) {
+    throw new Error(result?.error_description || "Google Drive authorization failed.");
+  }
+
+  return result.access_token;
+}
+
+function concatBytes(parts: Uint8Array[]): Uint8Array {
+  const result = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    result.set(part, offset);
+    offset += part.length;
+  }
+  return result;
+}
+
+async function uploadPdfToGoogleDrive(
+  filename: string,
+  pdfBytes: Uint8Array
+): Promise<{ id: string; webViewLink: string | null }> {
+  const folderId = Deno.env.get("GOOGLE_DRIVE_FOLDER_ID");
+  if (!folderId) throw new Error("GOOGLE_DRIVE_FOLDER_ID is not configured.");
+
+  const accessToken = await googleDriveAccessToken();
+  const escapeQuery = (value: string) =>
+    value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  const query = [
+    `'${escapeQuery(folderId)}' in parents`,
+    `name = '${escapeQuery(filename)}'`,
+    "trashed = false"
+  ].join(" and ");
+  const listUrl = new URL("https://www.googleapis.com/drive/v3/files");
+  listUrl.searchParams.set("q", query);
+  listUrl.searchParams.set("fields", "files(id)");
+  listUrl.searchParams.set("pageSize", "1");
+
+  const listResponse = await fetch(listUrl, {
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  const listResult = await listResponse.json();
+  if (!listResponse.ok) {
+    throw new Error(listResult?.error?.message || "Unable to check Google Drive.");
+  }
+
+  const existingId = listResult?.files?.[0]?.id as string | undefined;
+  const metadata = existingId
+    ? { name: filename }
+    : { name: filename, parents: [folderId] };
+  const boundary = `fp365-${crypto.randomUUID()}`;
+  const encoder = new TextEncoder();
+  const body = concatBytes([
+    encoder.encode(
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n` +
+      `${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: application/pdf\r\n\r\n`
+    ),
+    pdfBytes,
+    encoder.encode(`\r\n--${boundary}--`)
+  ]);
+  const uploadUrl = existingId
+    ? `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(existingId)}?uploadType=multipart&fields=id%2CwebViewLink`
+    : "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id%2CwebViewLink";
+  const uploadResponse = await fetch(uploadUrl, {
+    method: existingId ? "PATCH" : "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": `multipart/related; boundary=${boundary}`
+    },
+    body
+  });
+  const uploadResult = await uploadResponse.json();
+
+  if (!uploadResponse.ok || !uploadResult?.id) {
+    throw new Error(uploadResult?.error?.message || "Google Drive upload failed.");
+  }
+
+  return {
+    id: uploadResult.id,
+    webViewLink: uploadResult.webViewLink || null
+  };
+}
+
 function reportId(body: RequestBody): string {
   const code = safe(body.company_code, COMPANY_CODE)
     .replace(/[^A-Z0-9]/gi, "")
@@ -547,13 +651,28 @@ Deno.serve(async (req) => {
       .is("deleted_at", null);
     if (recipientError) throw recipientError;
 
+    const inspectionIds = entries
+      .map((entry) => entry.id)
+      .filter((id): id is string => Boolean(id));
     const { data: existingReport, error: existingReportError } = await serviceClient
       .from("end_shift_reports")
-      .select("report_id, storage_path, email_status")
+      .select("report_id, storage_path, email_status, drive_status, inspection_ids")
       .eq("report_id", result.reportId)
       .maybeSingle();
     if (existingReportError) throw existingReportError;
-    if (existingReport?.email_status === "sent" && existingReport.storage_path) {
+    const existingInspectionIds = Array.isArray(existingReport?.inspection_ids)
+      ? existingReport.inspection_ids.map(String).sort()
+      : [];
+    const currentInspectionIds = [...inspectionIds].sort();
+    const sameInspections =
+      existingInspectionIds.length === currentInspectionIds.length &&
+      existingInspectionIds.every((id, index) => id === currentInspectionIds[index]);
+    if (
+      existingReport?.email_status === "sent" &&
+      existingReport.storage_path &&
+      existingReport.drive_status === "uploaded" &&
+      sameInspections
+    ) {
       return new Response(
         JSON.stringify({
           ok: true,
@@ -571,6 +690,8 @@ Deno.serve(async (req) => {
         }
       );
     }
+    const emailAlreadySent =
+      existingReport?.email_status === "sent" && sameInspections;
 
     let binary = "";
     const chunkSize = 0x8000;
@@ -600,45 +721,47 @@ Deno.serve(async (req) => {
       throw new Error("No active End-of-Shift email recipients are configured.");
     }
 
-    const resendResponse = await fetch(
-      "https://api.resend.com/emails",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          from: fromEmail,
-          to: recipients,
-          subject:
-            `${result.reportId} — End-of-Shift Report — ${driverName}`,
-          html: `
-            <h2>Fleet Protect 365 End-of-Shift Report</h2>
-            <p><strong>Company:</strong> ${safe(body.company_name, COMPANY_NAME)}</p>
-            <p><strong>Driver:</strong> ${driverName}</p>
-            <p><strong>Employee ID:</strong> ${employeeId}</p>
-            <p><strong>Report ID:</strong> ${result.reportId}</p>
-            <p><strong>Shift date:</strong> ${shiftDate}</p>
-            <p><strong>Inspections:</strong> ${entries.length}</p>
-            <p>The printable PDF report is attached.</p>
-          `,
-          attachments: [
-            {
-              filename,
-              content: pdfBase64
-            }
-          ]
-        })
-      }
-    );
-
-    const resendResult = await resendResponse.json();
-
-    if (!resendResponse.ok) {
-      throw new Error(
-        resendResult?.message || "Resend rejected the email."
+    let resendResult: Record<string, unknown> | null = null;
+    if (!emailAlreadySent) {
+      const resendResponse = await fetch(
+        "https://api.resend.com/emails",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            from: fromEmail,
+            to: recipients,
+            subject:
+              `${result.reportId} — End-of-Shift Report — ${driverName}`,
+            html: `
+              <h2>Fleet Protect 365 End-of-Shift Report</h2>
+              <p><strong>Company:</strong> ${safe(body.company_name, COMPANY_NAME)}</p>
+              <p><strong>Driver:</strong> ${driverName}</p>
+              <p><strong>Employee ID:</strong> ${employeeId}</p>
+              <p><strong>Report ID:</strong> ${result.reportId}</p>
+              <p><strong>Shift date:</strong> ${shiftDate}</p>
+              <p><strong>Inspections:</strong> ${entries.length}</p>
+              <p>The printable PDF report is attached.</p>
+            `,
+            attachments: [
+              {
+                filename,
+                content: pdfBase64
+              }
+            ]
+          })
+        }
       );
+      resendResult = await resendResponse.json();
+
+      if (!resendResponse.ok) {
+        throw new Error(
+          String(resendResult?.message || "Resend rejected the email.")
+        );
+      }
     }
 
     const storagePath = `${profile.company_id}/${authData.user.id}/${filename}`;
@@ -646,9 +769,14 @@ Deno.serve(async (req) => {
       .from("end-shift-reports")
       .upload(storagePath, result.bytes, { contentType: "application/pdf", upsert: true });
     if (uploadError) throw uploadError;
-    const inspectionIds = entries
-      .map((entry) => entry.id)
-      .filter((id): id is string => Boolean(id));
+    let driveFile: { id: string; webViewLink: string | null } | null = null;
+    let driveError: string | null = null;
+    try {
+      driveFile = await uploadPdfToGoogleDrive(filename, result.bytes);
+    } catch (error) {
+      driveError = error instanceof Error ? error.message : String(error);
+      console.error("Google Drive archive failed:", driveError);
+    }
     const { error: reportError } = await serviceClient.from("end_shift_reports").upsert({
       company_id: profile.company_id,
       driver_id: authData.user.id,
@@ -659,10 +787,10 @@ Deno.serve(async (req) => {
       inspection_ids: inspectionIds,
       email_recipients: recipients,
       email_status: "sent",
-      drive_status: "stored",
+      drive_status: driveFile ? "uploaded" : "failed",
       emailed_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
-      error_message: null
+      error_message: driveError
     }, { onConflict: "report_id" });
     if (reportError) throw reportError;
 
@@ -674,7 +802,9 @@ Deno.serve(async (req) => {
         report_id: result.reportId,
         generated_at: result.generatedAt,
         email_id: resendResult?.id || null,
-        filename
+        filename,
+        drive_archived: Boolean(driveFile),
+        drive_warning: driveError
       }),
       {
         status: 200,

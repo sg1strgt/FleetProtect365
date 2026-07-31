@@ -81,9 +81,25 @@
     event.preventDefault();
     const button = $('sendForwardReport');
     button.disabled = true;
+    $('forwardReportMsg').textContent = 'Verifying Admin session…';
+    let { data: sessionData, error: sessionError } = await client.auth.getSession();
+    let session = sessionData?.session;
+    const expiresSoon = !session?.expires_at || session.expires_at * 1000 < Date.now() + 60000;
+    if (!sessionError && expiresSoon) {
+      const refreshed = await client.auth.refreshSession();
+      sessionError = refreshed.error;
+      session = refreshed.data?.session;
+    }
+    if (sessionError || !session?.access_token) {
+      button.disabled = false;
+      $('forwardReportMsg').textContent =
+        'Your Admin session has expired. Log out, log back in, and try again.';
+      return;
+    }
     $('forwardReportMsg').textContent = 'Sending archived PDF…';
     const { data, error } = await client.functions.invoke('email-archived-report', {
-      body: { reportId: $('forwardReportId').value, recipientEmail: $('forwardRecipient').value.trim() }
+      body: { reportId: $('forwardReportId').value, recipientEmail: $('forwardRecipient').value.trim() },
+      headers: { Authorization: `Bearer ${session.access_token}` }
     });
     button.disabled = false;
     if (error || !data?.ok) {
