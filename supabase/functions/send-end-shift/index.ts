@@ -7,7 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const RECIPIENT = "steven@fleetprotect365.com";
 const COMPANY_NAME = "Wade Freight Systems";
 const COMPANY_CODE = "WFS";
 const DEFAULT_TIME_ZONE = "America/Chicago";
@@ -539,6 +538,14 @@ Deno.serve(async (req) => {
     const { data: profile, error: profileError } = await serviceClient
       .from("employee_profiles").select("company_id").eq("id", authData.user.id).single();
     if (profileError) throw profileError;
+    const { data: recipientRows, error: recipientError } = await serviceClient
+      .from("report_recipients")
+      .select("email")
+      .eq("company_id", profile.company_id)
+      .eq("active", true)
+      .eq("receive_end_of_shift", true)
+      .is("deleted_at", null);
+    if (recipientError) throw recipientError;
 
     const { data: existingReport, error: existingReportError } = await serviceClient
       .from("end_shift_reports")
@@ -582,10 +589,16 @@ Deno.serve(async (req) => {
     const filename = `${result.reportId}_End_of_Shift.pdf`;
     const driverEmail = String(body.driver?.email || "").trim().toLowerCase();
     const recipients = [...new Set(
-      [RECIPIENT, driverEmail].filter((email) =>
+      [
+        ...(recipientRows || []).map((recipient) => String(recipient.email || "").trim().toLowerCase()),
+        driverEmail
+      ].filter((email) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
       )
     )];
+    if (!recipients.length) {
+      throw new Error("No active End-of-Shift email recipients are configured.");
+    }
 
     const resendResponse = await fetch(
       "https://api.resend.com/emails",
