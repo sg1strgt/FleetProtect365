@@ -57,7 +57,33 @@
     entries: [],
     current: null,
     selectedEntry: null,
-    pretripDone: false
+    pretripDone: false,
+    companyContent: null
+  };
+
+  const DEFAULT_QUESTIONS = {
+    question_pre: [
+      "Walk-around inspection completed",
+      "Tires and wheels appear safe",
+      "Lights and reflectors checked",
+      "Brakes and air system checked",
+      "No visible leaks or unsafe defects",
+      "Required documents are available"
+    ],
+    question_final: [
+      "Equipment numbers and locations are correct",
+      "Connection points are secure",
+      "Landing gear is raised where required",
+      "Air, brake, and electrical lines are connected",
+      "Required photos are clear and complete",
+      "This entry is complete and accurate"
+    ],
+    question_post: [
+      "Logged into Off Duty in Motive?",
+      "Leave vehicle in Motive?",
+      "Signed logs?",
+      "Leave fuel card in the truck?"
+    ]
   };
 
   const DB_NAME = "fp365-driver-db";
@@ -115,6 +141,7 @@
   const title = document.getElementById("screenTitle");
   const backBtn = document.getElementById("backBtn");
   const homeBtn = document.getElementById("homeBtn");
+  const menuBtn = document.getElementById("menuBtn");
   const modal = document.getElementById("modal");
 
   async function loadActiveTrucks() {
@@ -130,6 +157,37 @@
       .order("truck_number");
     if (error) throw error;
     activeTrucks = (data || []).map(row => String(row.truck_number));
+  }
+
+  async function loadCompanyContent() {
+    state.companyContent = null;
+    if (!supabaseClient || !state.user?.company_id) return;
+    try {
+      const { data, error } = await supabaseClient
+        .from("company_content")
+        .select("id,content_type,title,body,url,sort_order")
+        .eq("company_id", state.user.company_id)
+        .eq("active", true)
+        .in("content_type", ["question_pre", "question_post", "question_final", "fmcsa"])
+        .order("sort_order", { ascending: true })
+        .order("title", { ascending: true });
+      if (error) throw error;
+      state.companyContent = data || [];
+    } catch (error) {
+      console.warn("Company questions and links are temporarily unavailable; using built-in questions.", error);
+    }
+  }
+
+  function checklistItems(type) {
+    const synced = state.companyContent?.filter(item => item.content_type === type) || [];
+    return synced.length ? synced.map(item => item.title) : DEFAULT_QUESTIONS[type];
+  }
+
+  function showResourceMenu() {
+    const links = (state.companyContent || []).filter(item => item.content_type === "fmcsa" && item.url);
+    showModal("FMCSA Resources", links.length
+      ? `<div class="resource-list">${links.map(item => `<a class="resource-link" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(item.title)}</strong>${item.body ? `<span>${esc(item.body)}</span>` : ""}</a>`).join("")}</div>`
+      : "<p>No FMCSA links have been added by your administrator yet.</p>");
   }
 
   const CENTRAL_SYNC_START = Date.parse("2026-07-25T00:00:00Z");
@@ -359,6 +417,7 @@
 
   backBtn.onclick = goBack;
   homeBtn.onclick = goHome;
+  menuBtn.onclick = showResourceMenu;
   document.getElementById("feedbackFooter").onclick = () => navigate("feedback");
 
   function header(name) {
@@ -366,6 +425,7 @@
     const hide = state.screen === "login" || state.screen === "home";
     backBtn.classList.toggle("hidden", hide);
     homeBtn.classList.toggle("hidden", hide);
+    menuBtn.classList.toggle("hidden", state.screen !== "home");
   }
 
   function render() {
@@ -429,7 +489,7 @@
         if (sessionError) throw sessionError;
         state.user = data.profile;
         writeJson("fp365_user", state.user);
-        await loadActiveTrucks();
+        await Promise.all([loadActiveTrucks(), loadCompanyContent()]);
         navigate(data.mustChangePassword ? "passwordChange" : "home", false);
       } catch (err) {
         showModal("Login unsuccessful", `<p>${esc(err.message || String(err))}</p>`);
@@ -541,14 +601,7 @@
 
   function renderPreTrip() {
     header("Quick Pre-Trip Checklist");
-    const items = [
-      "Walk-around inspection completed",
-      "Tires and wheels appear safe",
-      "Lights and reflectors checked",
-      "Brakes and air system checked",
-      "No visible leaks or unsafe defects",
-      "Required documents are available"
-    ];
+    const items = checklistItems("question_pre");
     main.innerHTML = `
       <section class="card">
         <h2>Complete before selecting equipment</h2>
@@ -867,14 +920,7 @@
 
   function renderCertification() {
     header("Driver Certification");
-    const items = [
-      "Equipment numbers and locations are correct",
-      "Connection points are secure",
-      "Landing gear is raised where required",
-      "Air, brake, and electrical lines are connected",
-      "Required photos are clear and complete",
-      "This entry is complete and accurate"
-    ];
+    const items = checklistItems("question_final");
     main.innerHTML = `
       <section class="card">
         <h2>Final review</h2>
@@ -978,12 +1024,7 @@
   }
 function renderEndShift() {
     header("End of Shift");
-    const items = [
-      "Logged into Off Duty in Motive?",
-      "Leave vehicle in Motive?",
-      "Signed logs?",
-      "Leave fuel card in the truck?"
-    ];
+    const items = checklistItems("question_post");
 
     const now = new Date();
     const todayEntries = driverEntries().filter(entry => {
@@ -1140,7 +1181,7 @@ function renderEndShift() {
         localStorage.removeItem("fp365_user");
         state.screen = "login";
       } else {
-        await loadActiveTrucks();
+        await Promise.all([loadActiveTrucks(), loadCompanyContent()]);
         await syncPendingInspections();
         await removeConfirmedPriorDayEntries();
       }

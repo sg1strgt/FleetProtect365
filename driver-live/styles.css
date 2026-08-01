@@ -9,6 +9,7 @@ button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 .app{max-width:520px;min-height:100vh;margin:auto;padding:env(safe-area-inset-top) 16px calc(94px + env(safe-area-inset-bottom));background:radial-gradient(circle at 90% 0,rgba(123,92,255,.22),transparent 34%),#07101a}
 .topbar{position:sticky;top:0;z-index:20;display:grid;grid-template-columns:48px 1fr 48px;align-items:center;gap:8px;padding:12px 0 14px;background:rgba(7,16,26,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}
+.topbar-actions{width:48px;height:48px;display:grid;place-items:center}.topbar-actions .icon-btn{grid-area:1/1}
 .brand{font-weight:900;font-size:20px}.screen-title{font-size:13px;color:var(--muted);margin-top:2px}
 .icon-btn{width:46px;height:46px;border-radius:16px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:26px}
 .hidden{visibility:hidden}
@@ -49,4 +50,5 @@ textarea{min-height:120px;resize:vertical}
 .modal-card h2{margin-top:0}
 .detail-list{display:grid;gap:10px}.detail-row{padding-bottom:10px;border-bottom:1px solid var(--line)}.detail-row:last-child{border-bottom:0}
 .small{font-size:12px}
+.resource-list{display:grid;gap:10px;margin:14px 0}.resource-link{display:block;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel2);color:var(--text);text-decoration:none}.resource-link strong{display:block}.resource-link span{display:block;color:var(--muted);font-size:13px;line-height:1.4;margin-top:4px}
 @media(max-width:380px){.grid.two,.photo-actions{grid-template-columns:1fr}.hero h1{font-size:25px}}

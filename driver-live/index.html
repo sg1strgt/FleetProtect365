@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Fleet Protect 365 Driver</title>
   <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="stylesheet" href="styles.css?v=20260726-photos-2" />
+  <link rel="stylesheet" href="styles.css?v=20260801-content-sync-1" />
 </head>
 <body>
   <div id="app" class="app">
@@ -18,7 +18,10 @@
         <div class="brand">Fleet Protect 365</div>
         <div id="screenTitle" class="screen-title">Driver</div>
       </div>
-      <button id="homeBtn" class="icon-btn hidden" aria-label="Home">⌂</button>
+      <div class="topbar-actions">
+        <button id="homeBtn" class="icon-btn hidden" aria-label="Home">⌂</button>
+        <button id="menuBtn" class="icon-btn hidden" aria-label="Resources menu">☰</button>
+      </div>
     </header>
 
     <main id="main"></main>
@@ -39,11 +42,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js?v=20260725-retention-1"></script>
-  <script src="app.js?v=20260730-submit-message-2"></script>
+  <script src="app.js?v=20260801-content-sync-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=20260730-submit-message-2").catch(console.error);
+        navigator.serviceWorker.register("./service-worker.js?v=20260801-content-sync-1").catch(console.error);
       });
     }
   </script>
