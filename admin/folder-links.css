@@ -1,0 +1,22 @@
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.folder-link {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--blue);
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: #fff;
+  color: var(--blue);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.folder-link:hover {
+  background: #edf6ff;
+}
