@@ -364,6 +364,7 @@ async function makePdf(
   };
 
   const row = (label: string, value: unknown) => {
+    const labelWidth = 180;
     const valueLines = wrapText(safe(value), 64);
     const rowHeight = Math.max(20, valueLines.length * 13 + 7);
 
@@ -372,15 +373,15 @@ async function makePdf(
     page.drawRectangle({
       x: margin,
       y: y - rowHeight + 6,
-      width: 150,
+      width: labelWidth,
       height: rowHeight,
       color: rgb(0.94, 0.96, 0.98)
     });
 
     page.drawRectangle({
-      x: margin + 150,
+      x: margin + labelWidth,
       y: y - rowHeight + 6,
-      width: width - margin * 2 - 150,
+      width: width - margin * 2 - labelWidth,
       height: rowHeight,
       borderColor: rgb(0.84, 0.86, 0.89),
       borderWidth: 0.5
@@ -395,7 +396,7 @@ async function makePdf(
 
     valueLines.forEach((part, index) => {
       page.drawText(part, {
-        x: margin + 158,
+        x: margin + labelWidth + 8,
         y: y - 8 - index * 13,
         size: 10,
         font: regular
