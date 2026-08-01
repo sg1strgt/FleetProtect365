@@ -20,3 +20,20 @@
 .folder-link:hover {
   background: #edf6ff;
 }
+
+/* The size control applies to the complete logo tile, not just its image. */
+.company-logo-frame {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 210 / 116;
+  align-self: center;
+}
+
+.company-logo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 8px;
+  border-radius: inherit;
+  transform: none !important;
+}

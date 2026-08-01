@@ -130,9 +130,12 @@
   function updateSettingsPreview() {
     const notes = $('companyNotes')?.value || '';
     if ($('settingsNotesCount')) $('settingsNotesCount').textContent = `${notes.length} / 750`;
-    const scale = Number($('logoScale')?.value || 100);
+    const scale = Math.max(50, Math.min(100, Number($('logoScale')?.value || 100)));
+    if ($('logoScale')) $('logoScale').value = String(scale);
     if ($('logoScaleValue')) $('logoScaleValue').textContent = `${scale}%`;
-    const logo = $('companyLogo'); if (logo) { if ($('logoUrl')?.value) logo.src = $('logoUrl').value; logo.style.transform = `scale(${scale / 100})`; }
+    const logo = $('companyLogo'), tile = logo?.closest('.company-logo-frame');
+    if (logo && $('logoUrl')?.value) logo.src = $('logoUrl').value;
+    if (tile) tile.style.width = `${scale}%`;
   }
   async function saveSettings() {
     try {
