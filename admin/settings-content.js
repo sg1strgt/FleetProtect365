@@ -13,7 +13,9 @@
     if (!user) throw new Error('Admin session is unavailable.');
     const { data, error } = await s.from('employee_profiles').select('*,companies(*)').eq('id', user.id).single();
     if (error) throw error;
-    profile = data; company = data.companies;
+    profile = data;
+    company = Array.isArray(data.companies) ? data.companies[0] : data.companies;
+    if (!company?.id) throw new Error('Your company settings record could not be found.');
     $('legalNav')?.classList.toggle('hidden', profile.role !== 'super_admin');
     return { profile, company };
   }
@@ -146,8 +148,9 @@
       const logoFile = $('logoFile')?.files?.[0];
       const update = {address_street:$('addressStreet').value.trim(),address_suite:$('addressSuite').value.trim()||null,address_city:$('addressCity').value.trim(),address_state:$('addressState').value.trim().toUpperCase(),address_zip:$('addressZip').value.trim(),admin_notes:$('companyNotes').value.trim()||null,logo_url:$('logoUrl').value.trim()||null,logo_scale:Number($('logoScale').value),storage_location:$('driveFolder').value.trim(),documents_drive_folder_id:$('documentsFolderId').value.trim()||null,contact_name:$('contactName').value.trim(),contact_email:$('contactEmail').value.trim(),contact_phone:$('contactPhone').value.trim()};
       if (!update.address_street || !update.address_city || !update.address_state || !update.address_zip) throw new Error('Street, City, State, and ZIP are required.');
-      const { data, error } = await s.from('companies').update(update).eq('id', co.id).select('*').single();
+      const { data, error } = await s.from('companies').update(update).eq('id', co.id).select('*').maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error('Company settings could not be saved. Please refresh the page and try again.');
       if (profile?.role === 'super_admin') {
         legalFolderIdValue = $('legalFolderId').value.trim();
         const {error: privateError} = await s.from('company_private_settings').upsert({company_id:co.id,legal_drive_folder_id:legalFolderIdValue||null,updated_at:new Date().toISOString()});
@@ -167,8 +170,9 @@
           const {error: uploadError} = await s.storage.from('company-assets').upload(path, content, {upsert:true, contentType:content.type});
           if (uploadError) throw uploadError;
           const uploadedLogoUrl = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
-          const {data:logoData,error:logoUpdateError} = await s.from('companies').update({logo_url:uploadedLogoUrl}).eq('id',co.id).select('*').single();
+          const {data:logoData,error:logoUpdateError} = await s.from('companies').update({logo_url:uploadedLogoUrl}).eq('id',co.id).select('*').maybeSingle();
           if (logoUpdateError) throw logoUpdateError;
+          if (!logoData) throw new Error('The uploaded logo could not be attached to the company settings.');
           $('logoUrl').value = uploadedLogoUrl;
           company = logoData;
         } catch (error) { logoUploadError = error; }
