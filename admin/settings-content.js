@@ -142,6 +142,30 @@
       tile.style.marginBottom = `${-116 * (1 - scale / 100)}px`;
     }
   }
+
+  async function prepareLogoImage(file) {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement('canvas');
+    canvas.width = bitmap.width; canvas.height = bitmap.height;
+    const ctx = canvas.getContext('2d', {willReadFrequently:true});
+    ctx.drawImage(bitmap, 0, 0);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let left=canvas.width, top=canvas.height, right=-1, bottom=-1;
+    for (let y=0; y<canvas.height; y+=1) for (let x=0; x<canvas.width; x+=1) {
+      const at=(y*canvas.width+x)*4, r=pixels[at], g=pixels[at+1], b=pixels[at+2], a=pixels[at+3];
+      if (a>20 && (Math.min(r,g,b)<220 || Math.max(r,g,b)-Math.min(r,g,b)>22)) {
+        left=Math.min(left,x); right=Math.max(right,x); top=Math.min(top,y); bottom=Math.max(bottom,y);
+      }
+    }
+    if (right<left || bottom<top) return {blob:file, extension:(file.name.split('.').pop()||'png').replace(/[^a-z0-9]/gi,'').toLowerCase()};
+    const width=right-left+1, height=bottom-top+1, padX=Math.round(width*.08), padY=Math.round(height*.12);
+    left=Math.max(0,left-padX); top=Math.max(0,top-padY); right=Math.min(canvas.width-1,right+padX); bottom=Math.min(canvas.height-1,bottom+padY);
+    const cropped=document.createElement('canvas'); cropped.width=right-left+1; cropped.height=bottom-top+1;
+    cropped.getContext('2d').drawImage(canvas,left,top,cropped.width,cropped.height,0,0,cropped.width,cropped.height);
+    const blob=await new Promise((resolve,reject)=>cropped.toBlob(value=>value?resolve(value):reject(new Error('The logo image could not be prepared.')),'image/png'));
+    return {blob,extension:'png'};
+  }
+
   async function saveSettings() {
     try {
       const { company: co } = await context();
@@ -162,11 +186,12 @@
         try {
           if (!logoFile.type.startsWith('image/')) throw new Error('Choose an image file for the company logo.');
           if (logoFile.size > 5 * 1024 * 1024) throw new Error('The logo image must be 5 MB or smaller.');
-          const extension = (logoFile.name.split('.').pop() || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase();
+          const prepared = await prepareLogoImage(logoFile);
+          const extension = prepared.extension;
           const path = `${co.id}/logo-${Date.now()}.${extension}`;
-          const bytes = new Uint8Array(await logoFile.arrayBuffer());
+          const bytes = new Uint8Array(await prepared.blob.arrayBuffer());
           if (!bytes.byteLength) throw new Error('The selected logo file is empty.');
-          const content = new Blob([bytes], {type:logoFile.type || 'application/octet-stream'});
+          const content = new Blob([bytes], {type:prepared.blob.type || logoFile.type || 'application/octet-stream'});
           const {error: uploadError} = await s.storage.from('company-assets').upload(path, content, {upsert:true, contentType:content.type});
           if (uploadError) throw uploadError;
           const uploadedLogoUrl = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
