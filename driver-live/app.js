@@ -161,12 +161,27 @@
 
   async function loadCompanyContent() {
     state.companyContent = null;
-    if (!supabaseClient || !state.user?.company_id) return;
+    if (!supabaseClient || !state.user) return;
     try {
+      let companyId = state.user.company_id;
+      if (!companyId && state.user.id) {
+        const { data: profile, error: profileError } = await supabaseClient
+          .from("employee_profiles")
+          .select("company_id")
+          .eq("id", state.user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        companyId = profile?.company_id || "";
+        if (companyId) {
+          state.user.company_id = companyId;
+          writeJson("fp365_user", state.user);
+        }
+      }
+      if (!companyId) throw new Error("The driver company could not be identified.");
       const { data, error } = await supabaseClient
         .from("company_content")
         .select("id,content_type,title,body,url,sort_order")
-        .eq("company_id", state.user.company_id)
+        .eq("company_id", companyId)
         .eq("active", true)
         .in("content_type", ["question_pre", "question_post", "question_final", "fmcsa"])
         .order("sort_order", { ascending: true })

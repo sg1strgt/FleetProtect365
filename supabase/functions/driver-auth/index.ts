@@ -51,7 +51,7 @@ export default {
 
         const { data: profile, error: profileError } = await admin
           .from("employee_profiles")
-          .select("id, full_name, display_name, employee_id, email, phone, role, status, is_tester, password_reset_required, failed_login_count, deleted_at")
+          .select("id, company_id, full_name, display_name, employee_id, email, phone, role, status, is_tester, password_reset_required, failed_login_count, deleted_at")
           .eq("employee_id", employeeId)
           .maybeSingle();
         if (profileError || !profile || profile.deleted_at) {
@@ -100,6 +100,7 @@ export default {
           mustChangePassword: Boolean(profile.password_reset_required),
           profile: {
             id: profile.id,
+            company_id: profile.company_id,
             full_name: profile.full_name,
             display_name: profile.display_name,
             employee_id: profile.employee_id,
