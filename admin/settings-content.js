@@ -212,7 +212,7 @@
   function ensureContentDialog() {
     if ($('contentDialog')) return;
     const dialog = document.createElement('dialog'); dialog.id = 'contentDialog';
-    dialog.innerHTML = '<form id="contentForm"><h3 id="contentDialogTitle">Add Item</h3><input id="contentId" type="hidden"><input id="contentType" type="hidden"><label>Title / Question *</label><input id="contentTitle" required maxlength="300"><label id="contentUrlLabel">Link</label><input id="contentUrl" type="url" placeholder="https://..."><label>Notes / Description</label><textarea id="contentBody" rows="4" maxlength="1000"></textarea><label>Display Order</label><input id="contentOrder" type="number" min="0" value="0"><label class="check-row"><input id="contentActive" type="checkbox" checked> Active</label><p id="contentMsg"></p><div class="actions"><button id="deleteContent" type="button" class="danger hidden">Remove</button><button id="cancelContent" type="button">Cancel</button><button type="submit" class="primary">Save</button></div></form>';
+    dialog.innerHTML = '<form id="contentForm"><h3 id="contentDialogTitle">Add Item</h3><input id="contentId" type="hidden"><input id="contentType" type="hidden"><label>Title / Question *</label><input id="contentTitle" required maxlength="300"><label id="contentUrlLabel">Link</label><input id="contentUrl" type="url" placeholder="https://..."><label>Notes / Description</label><textarea id="contentBody" rows="4" maxlength="1000"></textarea><label>Display Order</label><input id="contentOrder" type="number" min="0" value="0"><label class="check-row"><input id="contentActive" type="checkbox" checked> Active</label><p id="contentMsg"></p><div class="actions"><button id="deleteContent" type="button" class="danger hidden">Make Inactive</button><button id="cancelContent" type="button">Cancel</button><button type="submit" class="primary">Save</button></div></form>';
     document.body.appendChild(dialog);
     $('cancelContent').onclick = () => dialog.close();
     $('contentForm').onsubmit = saveContent;
@@ -223,7 +223,7 @@
     $('contentForm').reset(); $('contentId').value = item?.id || ''; $('contentType').value = type;
     $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = item?.body || ''; $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
     $('contentUrlLabel').classList.toggle('hidden', type.startsWith('question_')); $('contentUrl').classList.toggle('hidden', type.startsWith('question_'));
-    $('deleteContent').classList.toggle('hidden', !item); $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
+    $('deleteContent').classList.toggle('hidden', !item || !item.active); $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
   }
   async function saveContent(e) {
     e.preventDefault();
@@ -231,12 +231,15 @@
       const {profile:p, company:co} = await context(), id=$('contentId').value, type=$('contentType').value;
       const record={company_id:co.id,content_type:type,title:$('contentTitle').value.trim(),url:$('contentUrl').value.trim()||null,body:$('contentBody').value.trim()||null,sort_order:Number($('contentOrder').value)||0,active:$('contentActive').checked,updated_by:p.id,updated_at:new Date().toISOString()};
       const query=id?s.from('company_content').update(record).eq('id',id):s.from('company_content').insert({...record,created_by:p.id}); const {error}=await query; if(error)throw error;
-      $('contentDialog').close(); await loadContent(type);
+      $('contentDialog').close(); await loadContent(type === 'document' ? 'documents' : type);
     } catch(error){$('contentMsg').textContent=error.message;}
   }
   async function deleteContent() {
-    if (!confirm('Remove this item?')) return;
-    const id=$('contentId').value,type=$('contentType').value,{error}=await s.from('company_content').delete().eq('id',id); if(error)return $('contentMsg').textContent=error.message; $('contentDialog').close(); loadContent(type);
+    if (!confirm('Make this item inactive?')) return;
+    const {profile:p}=await context(),id=$('contentId').value,type=$('contentType').value;
+    const {error}=await s.from('company_content').update({active:false,updated_by:p.id,updated_at:new Date().toISOString()}).eq('id',id);
+    if(error)return $('contentMsg').textContent=error.message;
+    $('contentDialog').close(); loadContent(type === 'document' ? 'documents' : type);
   }
   function targetFor(type){return type.startsWith('question_')?'questionsList':`${type}List`;}
   function driveFolderUrl(id){return id?`https://drive.google.com/drive/folders/${encodeURIComponent(id)}`:'';}
@@ -249,7 +252,7 @@
     try {
       const {profile:p,company:co}=await context();
       if(type==='legal'&&p.role==='super_admin'&&!legalFolderIdValue){const {data:privateData,error:privateError}=await s.from('company_private_settings').select('legal_drive_folder_id').eq('company_id',co.id).maybeSingle();if(privateError)throw privateError;legalFolderIdValue=privateData?.legal_drive_folder_id||'';}
-      updateFolderLinks(); const types=type==='questions'?[questionType]:[type];
+      updateFolderLinks(); const types=type==='questions'?[questionType]:[type === 'documents' ? 'document' : type];
       const {data,error}=await s.from('company_content').select('*').eq('company_id',co.id).in('content_type',types).order('sort_order').order('title'); if(error)throw error;
       const target=$(targetFor(type==='questions'?questionType:type)); if(!target)return;
       target.innerHTML=(data||[]).map(item=>`<article class="content-item"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><button data-edit-content="${esc(item.id)}">Edit</button></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
