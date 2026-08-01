@@ -144,14 +144,19 @@
     try {
       const { company: co } = await context();
       const logoFile = $('logoFile')?.files?.[0];
+      let logoUploadError = null;
       if (logoFile) {
         if (!logoFile.type.startsWith('image/')) throw new Error('Choose an image file for the company logo.');
         if (logoFile.size > 5 * 1024 * 1024) throw new Error('The logo image must be 5 MB or smaller.');
         const extension = (logoFile.name.split('.').pop() || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase();
         const path = `${co.id}/logo-${Date.now()}.${extension}`;
-        const { error: uploadError } = await s.storage.from('company-assets').upload(path, logoFile, { upsert:true, contentType:logoFile.type });
-        if (uploadError) throw uploadError;
-        $('logoUrl').value = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
+        try {
+          const content = await logoFile.arrayBuffer();
+          if (!content.byteLength) throw new Error('The selected logo file is empty.');
+          const { error: uploadError } = await s.storage.from('company-assets').upload(path, content, { upsert:true, contentType:logoFile.type || 'application/octet-stream' });
+          if (uploadError) throw uploadError;
+          $('logoUrl').value = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
+        } catch (error) { logoUploadError = error; }
       }
       const update = {address_street:$('addressStreet').value.trim(),address_suite:$('addressSuite').value.trim()||null,address_city:$('addressCity').value.trim(),address_state:$('addressState').value.trim().toUpperCase(),address_zip:$('addressZip').value.trim(),admin_notes:$('companyNotes').value.trim()||null,logo_url:$('logoUrl').value.trim()||null,logo_scale:Number($('logoScale').value),storage_location:$('driveFolder').value.trim(),documents_drive_folder_id:$('documentsFolderId').value.trim()||null,contact_name:$('contactName').value.trim(),contact_email:$('contactEmail').value.trim(),contact_phone:$('contactPhone').value.trim()};
       if (!update.address_street || !update.address_city || !update.address_state || !update.address_zip) throw new Error('Street, City, State, and ZIP are required.');
@@ -162,7 +167,11 @@
         const {error: privateError} = await s.from('company_private_settings').upsert({company_id:co.id,legal_drive_folder_id:legalFolderIdValue||null,updated_at:new Date().toISOString()});
         if (privateError) throw privateError;
       }
-      company = data; $('settingsMsg').textContent = 'Company settings saved.'; updateFolderLinks(); updateSettingsPreview();
+      company = data;
+      $('settingsMsg').textContent = logoUploadError
+        ? `Company settings saved, but the logo image was not replaced: ${logoUploadError.message}`
+        : 'Company settings saved.';
+      updateFolderLinks(); updateSettingsPreview();
     } catch (error) { $('settingsMsg').textContent = error.message; }
   }
 
