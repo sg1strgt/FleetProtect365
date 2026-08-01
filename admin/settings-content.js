@@ -223,7 +223,10 @@
     $('contentForm').reset(); $('contentId').value = item?.id || ''; $('contentType').value = type;
     $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = item?.body || ''; $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
     $('contentUrlLabel').classList.toggle('hidden', type.startsWith('question_')); $('contentUrl').classList.toggle('hidden', type.startsWith('question_'));
-    $('deleteContent').classList.toggle('hidden', !item || !item.active); $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
+    const canPermanentlyDelete = profile?.role === 'super_admin' && type === 'document';
+    $('deleteContent').textContent = canPermanentlyDelete ? 'Delete Permanently' : 'Make Inactive';
+    $('deleteContent').classList.toggle('hidden', !item || (!canPermanentlyDelete && !item.active));
+    $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
   }
   async function saveContent(e) {
     e.preventDefault();
@@ -235,9 +238,13 @@
     } catch(error){$('contentMsg').textContent=error.message;}
   }
   async function deleteContent() {
-    if (!confirm('Make this item inactive?')) return;
     const {profile:p}=await context(),id=$('contentId').value,type=$('contentType').value;
-    const {error}=await s.from('company_content').update({active:false,updated_by:p.id,updated_at:new Date().toISOString()}).eq('id',id);
+    const permanent = p.role === 'super_admin' && type === 'document';
+    if (!confirm(permanent ? 'Permanently delete this document? This cannot be undone.' : 'Make this item inactive?')) return;
+    const query = permanent
+      ? s.from('company_content').delete().eq('id',id)
+      : s.from('company_content').update({active:false,updated_by:p.id,updated_at:new Date().toISOString()}).eq('id',id);
+    const {error}=await query;
     if(error)return $('contentMsg').textContent=error.message;
     $('contentDialog').close(); loadContent(type === 'document' ? 'documents' : type);
   }
@@ -255,7 +262,7 @@
       updateFolderLinks(); const types=type==='questions'?[questionType]:[type === 'documents' ? 'document' : type];
       const {data,error}=await s.from('company_content').select('*').eq('company_id',co.id).in('content_type',types).order('sort_order').order('title'); if(error)throw error;
       const target=$(targetFor(type==='questions'?questionType:type)); if(!target)return;
-      target.innerHTML=(data||[]).map(item=>`<article class="content-item"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><button data-edit-content="${esc(item.id)}">Edit</button></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
+      target.innerHTML=(data||[]).map(item=>`<article class="content-item${item.active?'':' content-item-inactive'}"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><button data-edit-content="${esc(item.id)}">Edit</button></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
       target.querySelectorAll('[data-edit-content]').forEach(btn=>btn.onclick=()=>openContent((data||[]).find(x=>x.id===btn.dataset.editContent).content_type,(data||[]).find(x=>x.id===btn.dataset.editContent)));
     } catch(error){const target=$(targetFor(type==='questions'?questionType:type));if(target)target.innerHTML=`<p>${esc(error.message)}</p>`;}
   }
