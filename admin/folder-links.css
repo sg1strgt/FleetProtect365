@@ -24,9 +24,14 @@
 /* The size control applies to the complete logo tile, not just its image. */
 .company-logo-frame {
   width: 100%;
-  height: auto;
+  height: 116px;
   aspect-ratio: 210 / 116;
   align-self: center;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  transform: scale(var(--logo-tile-scale, 1));
+  transform-origin: top center;
 }
 
 .company-logo-frame img {
@@ -35,5 +40,6 @@
   object-fit: contain;
   padding: 8px;
   border-radius: inherit;
+  background: transparent;
   transform: none !important;
 }

@@ -135,7 +135,10 @@
     if ($('logoScaleValue')) $('logoScaleValue').textContent = `${scale}%`;
     const logo = $('companyLogo'), tile = logo?.closest('.company-logo-frame');
     if (logo && $('logoUrl')?.value) logo.src = $('logoUrl').value;
-    if (tile) tile.style.width = `${scale}%`;
+    if (tile) {
+      tile.style.setProperty('--logo-tile-scale', String(scale / 100));
+      tile.style.marginBottom = `${-116 * (1 - scale / 100)}px`;
+    }
   }
   async function saveSettings() {
     try {
