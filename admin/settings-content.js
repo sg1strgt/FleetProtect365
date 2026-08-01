@@ -144,20 +144,6 @@
     try {
       const { company: co } = await context();
       const logoFile = $('logoFile')?.files?.[0];
-      let logoUploadError = null;
-      if (logoFile) {
-        if (!logoFile.type.startsWith('image/')) throw new Error('Choose an image file for the company logo.');
-        if (logoFile.size > 5 * 1024 * 1024) throw new Error('The logo image must be 5 MB or smaller.');
-        const extension = (logoFile.name.split('.').pop() || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase();
-        const path = `${co.id}/logo-${Date.now()}.${extension}`;
-        try {
-          const content = await logoFile.arrayBuffer();
-          if (!content.byteLength) throw new Error('The selected logo file is empty.');
-          const { error: uploadError } = await s.storage.from('company-assets').upload(path, content, { upsert:true, contentType:logoFile.type || 'application/octet-stream' });
-          if (uploadError) throw uploadError;
-          $('logoUrl').value = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
-        } catch (error) { logoUploadError = error; }
-      }
       const update = {address_street:$('addressStreet').value.trim(),address_suite:$('addressSuite').value.trim()||null,address_city:$('addressCity').value.trim(),address_state:$('addressState').value.trim().toUpperCase(),address_zip:$('addressZip').value.trim(),admin_notes:$('companyNotes').value.trim()||null,logo_url:$('logoUrl').value.trim()||null,logo_scale:Number($('logoScale').value),storage_location:$('driveFolder').value.trim(),documents_drive_folder_id:$('documentsFolderId').value.trim()||null,contact_name:$('contactName').value.trim(),contact_email:$('contactEmail').value.trim(),contact_phone:$('contactPhone').value.trim()};
       if (!update.address_street || !update.address_city || !update.address_state || !update.address_zip) throw new Error('Street, City, State, and ZIP are required.');
       const { data, error } = await s.from('companies').update(update).eq('id', co.id).select('*').single();
@@ -168,9 +154,28 @@
         if (privateError) throw privateError;
       }
       company = data;
+      let logoUploadError = null;
+      if (logoFile) {
+        try {
+          if (!logoFile.type.startsWith('image/')) throw new Error('Choose an image file for the company logo.');
+          if (logoFile.size > 5 * 1024 * 1024) throw new Error('The logo image must be 5 MB or smaller.');
+          const extension = (logoFile.name.split('.').pop() || 'png').replace(/[^a-z0-9]/gi, '').toLowerCase();
+          const path = `${co.id}/logo-${Date.now()}.${extension}`;
+          const bytes = new Uint8Array(await logoFile.arrayBuffer());
+          if (!bytes.byteLength) throw new Error('The selected logo file is empty.');
+          const content = new Blob([bytes], {type:logoFile.type || 'application/octet-stream'});
+          const {error: uploadError} = await s.storage.from('company-assets').upload(path, content, {upsert:true, contentType:content.type});
+          if (uploadError) throw uploadError;
+          const uploadedLogoUrl = s.storage.from('company-assets').getPublicUrl(path).data.publicUrl;
+          const {data:logoData,error:logoUpdateError} = await s.from('companies').update({logo_url:uploadedLogoUrl}).eq('id',co.id).select('*').single();
+          if (logoUpdateError) throw logoUpdateError;
+          $('logoUrl').value = uploadedLogoUrl;
+          company = logoData;
+        } catch (error) { logoUploadError = error; }
+      }
       $('settingsMsg').textContent = logoUploadError
-        ? `Company settings saved, but the logo image was not replaced: ${logoUploadError.message}`
-        : 'Company settings saved.';
+        ? `Company settings and tile size saved. The logo image was not replaced: ${logoUploadError.message}`
+        : 'Company settings and tile size saved.';
       updateFolderLinks(); updateSettingsPreview();
     } catch (error) { $('settingsMsg').textContent = error.message; }
   }
