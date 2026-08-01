@@ -451,6 +451,7 @@
       pretrip: renderPreTrip,
       newEntry: renderNewEntry,
       inspection: renderInspection,
+      inspectionPhotos: renderInspectionPhotos,
       certification: renderCertification,
       entries: renderEntries,
       entryDetail: renderEntryDetail,
@@ -695,8 +696,6 @@
     if (!state.current) return goHome();
     header(equipment[state.current.type].label);
     const c = state.current;
-    const photoList = equipment[c.type].photos;
-
     main.innerHTML = `
       <section class="card">
         <h2>Trip and equipment details</h2>
@@ -715,43 +714,9 @@
         <textarea id="notes" placeholder="Enter notes or NA">${esc(c.notes)}</textarea>
       </section>
 
-      ${photoList.length ? `
-      <section class="card">
-        <h2>Required photos</h2>
-        <p class="field-help">Choose Take Photo to open the camera or Upload Photo to select from the photo library.</p>
-        ${photoList.map((p,i) => photoControl(p, i, c.photos[i])).join("")}
-        <div class="photo-item">
-          <strong>Additional photos</strong>
-          <div class="photo-actions">
-            <label class="file-label">Take Photo<input id="extraCamera" type="file" accept="image/*" capture="environment" multiple></label>
-            <label class="file-label">Upload Photo<input id="extraUpload" type="file" accept="image/*" multiple></label>
-          </div>
-          <div id="extraStatus" class="status ${c.extra_photos.length ? "ok":"missing"}">${c.extra_photos.length} added</div>
-          <div id="extraPhotoList">
-            ${c.extra_photos.map((photo, i) => `
-              <div class="photo-item" style="margin-top:10px">
-                <img class="photo-preview expandable-photo" src="${photo.data_url}" alt="${esc(photo.name || `Additional photo ${i + 1}`)}" title="Tap to enlarge">
-                <button type="button" class="danger remove-extra" data-index="${i}" style="margin-top:8px">Remove Extra Photo</button>
-              </div>`).join("")}
-          </div>
-        </div>
-      </section>` : ""}
-
-      <section class="card">
-        <button id="bypassBtn" type="button" class="${c.bypass ? "danger" : "secondary"}" style="width:100%">
-          ${c.bypass ? "Bypass Active — Red Flag" : "Bypass Required Item"}
-        </button>
-        <div id="bypassWrap" style="${c.bypass ? "" : "display:none"};margin-top:12px">
-          <div class="alert"><strong>RED FLAG:</strong> An explanation is required and will be saved with this entry.</div>
-          <label>Bypass explanation</label>
-          <textarea id="bypassReason" placeholder="Explain exactly what is being bypassed and why">${esc(c.bypass_reason)}</textarea>
-          <button id="cancelBypass" type="button" class="secondary">Cancel Bypass</button>
-        </div>
-      </section>
-
       <div class="grid two">
         <button id="saveBtn" class="secondary">Save Entry</button>
-        <button id="nextBtn" class="primary">Continue</button>
+        <button id="nextBtn" class="primary">Continue to Photos</button>
       </div>`;
 
     document.querySelectorAll(".na-btn").forEach(button => {
@@ -759,62 +724,6 @@
         const input = document.getElementById(button.dataset.target);
         input.value = "NA";
         input.focus();
-      };
-    });
-
-    const bypassBtn = document.getElementById("bypassBtn");
-    bypassBtn.onclick = () => {
-      c.bypass = true;
-      document.getElementById("bypassWrap").style.display = "";
-      bypassBtn.textContent = "Bypass Active — Red Flag";
-      bypassBtn.className = "danger";
-      setTimeout(() => document.getElementById("bypassReason").focus(), 50);
-    };
-    document.getElementById("cancelBypass").onclick = () => {
-      c.bypass = false;
-      c.bypass_reason = "";
-      document.getElementById("bypassReason").value = "";
-      document.getElementById("bypassWrap").style.display = "none";
-      bypassBtn.textContent = "Bypass Required Item";
-      bypassBtn.className = "secondary";
-    };
-
-    document.querySelectorAll(".expandable-photo").forEach(img => {
-      if (img.src) img.onclick = () => showPhoto(img.src, img.alt || "Photo");
-    });
-
-    document.querySelectorAll(".required-photo").forEach(input => {
-      input.onchange = async e => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        const index = e.target.dataset.index;
-        c.photos[index] = await fileRecord(file);
-        updatePhotoStatus(index, c.photos[index]);
-      };
-    });
-
-    document.querySelectorAll(".remove-required").forEach(button => {
-      button.onclick = () => {
-        const index = button.dataset.index;
-        delete c.photos[index];
-        renderInspection();
-      };
-    });
-
-    const extraHandler = async e => {
-      for (const file of [...(e.target.files || [])]) c.extra_photos.push(await fileRecord(file));
-      renderInspection();
-    };
-    const extraCamera = document.getElementById("extraCamera");
-    const extraUpload = document.getElementById("extraUpload");
-    if (extraCamera) extraCamera.onchange = extraHandler;
-    if (extraUpload) extraUpload.onchange = extraHandler;
-
-    document.querySelectorAll(".remove-extra").forEach(button => {
-      button.onclick = () => {
-        const index = Number(button.dataset.index);
-        c.extra_photos.splice(index, 1);
-        renderInspection();
       };
     });
 
@@ -835,10 +744,59 @@
 
     document.getElementById("nextBtn").onclick = () => {
       syncCurrent();
-      const missing = validateCurrent();
+      const missing = validateTripDetails();
       if (missing.length) {
         return showModal("Complete required items", `<p>${missing.map(esc).join("<br>")}</p>`);
       }
+      navigate("inspectionPhotos");
+    };
+  }
+
+  function renderInspectionPhotos() {
+    if (!state.current) return goHome();
+    header("Inspection Photos");
+    const c = state.current;
+    const photoList = equipment[c.type].photos;
+    main.innerHTML = `
+      <section class="card">
+        <h2>${photoList.length ? "Required photos" : "Inspection photos"}</h2>
+        <p class="field-help">${photoList.length ? "Take or upload every required photo before continuing." : "No required photos are configured for this equipment. You may add photos if needed."}</p>
+        ${photoList.map((p,i) => photoControl(p, i, c.photos[i])).join("")}
+        <div class="photo-item">
+          <strong>Additional photos</strong>
+          <div class="photo-actions">
+            <label class="file-label">Take Photo<input id="extraCamera" type="file" accept="image/*" capture="environment" multiple></label>
+            <label class="file-label">Upload Photo<input id="extraUpload" type="file" accept="image/*" multiple></label>
+          </div>
+          <div class="status ${c.extra_photos.length ? "ok":"missing"}">${c.extra_photos.length} added</div>
+          ${c.extra_photos.map((photo, i) => `<div class="photo-item" style="margin-top:10px"><img class="photo-preview expandable-photo" src="${photo.data_url}" alt="${esc(photo.name || `Additional photo ${i + 1}`)}" title="Tap to enlarge"><button type="button" class="danger remove-extra" data-index="${i}" style="margin-top:8px">Remove Extra Photo</button></div>`).join("")}
+        </div>
+      </section>
+      <section class="card">
+        <button id="bypassBtn" type="button" class="${c.bypass ? "danger" : "secondary"}" style="width:100%">${c.bypass ? "Bypass Active — Red Flag" : "Bypass Required Photos"}</button>
+        <div id="bypassWrap" style="${c.bypass ? "" : "display:none"};margin-top:12px">
+          <div class="alert"><strong>RED FLAG:</strong> An explanation is required and will be saved with this entry.</div>
+          <label>Bypass explanation</label>
+          <textarea id="bypassReason" placeholder="Explain exactly what is being bypassed and why">${esc(c.bypass_reason)}</textarea>
+          <button id="cancelBypass" type="button" class="secondary">Cancel Bypass</button>
+        </div>
+      </section>
+      <button id="photosContinue" class="primary">Continue to Final Review</button>`;
+
+    const bypassBtn = document.getElementById("bypassBtn");
+    bypassBtn.onclick = () => { c.bypass = true; document.getElementById("bypassWrap").style.display = ""; bypassBtn.textContent = "Bypass Active — Red Flag"; bypassBtn.className = "danger"; };
+    document.getElementById("cancelBypass").onclick = () => { c.bypass = false; c.bypass_reason = ""; document.getElementById("bypassReason").value = ""; document.getElementById("bypassWrap").style.display = "none"; bypassBtn.textContent = "Bypass Required Photos"; bypassBtn.className = "secondary"; };
+    document.querySelectorAll(".expandable-photo").forEach(img => { if (img.src) img.onclick = () => showPhoto(img.src, img.alt || "Photo"); });
+    document.querySelectorAll(".required-photo").forEach(input => { input.onchange = async e => { const file = e.target.files?.[0]; if (!file) return; const index = e.target.dataset.index; c.photos[index] = await fileRecord(file); updatePhotoStatus(index, c.photos[index]); }; });
+    document.querySelectorAll(".remove-required").forEach(button => { button.onclick = () => { delete c.photos[button.dataset.index]; renderInspectionPhotos(); }; });
+    const extraHandler = async e => { for (const file of [...(e.target.files || [])]) c.extra_photos.push(await fileRecord(file)); renderInspectionPhotos(); };
+    document.getElementById("extraCamera").onchange = extraHandler;
+    document.getElementById("extraUpload").onchange = extraHandler;
+    document.querySelectorAll(".remove-extra").forEach(button => { button.onclick = () => { c.extra_photos.splice(Number(button.dataset.index), 1); renderInspectionPhotos(); }; });
+    document.getElementById("photosContinue").onclick = () => {
+      c.bypass_reason = document.getElementById("bypassReason")?.value.trim() || "";
+      const missing = validatePhotos();
+      if (missing.length) return showModal("Complete required photos", `<p>${missing.map(esc).join("<br>")}</p>`);
       navigate("certification");
     };
   }
@@ -912,7 +870,7 @@
     state.current.bypass_reason = document.getElementById("bypassReason")?.value.trim() || "";
   }
 
-  function validateCurrent() {
+  function validateTripDetails() {
     const c = state.current;
     const missing = [];
     ["truck","from","to","notes"].forEach(k => { if (!c[k]) missing.push(labelFor(k)); });
@@ -921,11 +879,14 @@
       if (!c.dolly) missing.push("Dolly number");
       if (!c.trailer2) missing.push("Trailer 2 number");
     }
-    if (!c.bypass) {
-      equipment[c.type].photos.forEach((label,i) => { if (!c.photos[i]) missing.push(label); });
-    } else if (!c.bypass_reason) {
-      missing.push("Bypass explanation");
-    }
+    return missing;
+  }
+
+  function validatePhotos() {
+    const c = state.current;
+    const missing = [];
+    if (!c.bypass) equipment[c.type].photos.forEach((label,i) => { if (!c.photos[i]) missing.push(label); });
+    else if (!c.bypass_reason) missing.push("Bypass explanation");
     return missing;
   }
 
