@@ -90,7 +90,7 @@
         s.from('employee_profiles').select('role,status').eq('company_id', co.id).is('deleted_at', null),
         s.from('trucks').select('status').eq('company_id', co.id).is('deleted_at', null),
         s.from('inspections').select('*', { count:'exact', head:true }).eq('company_id', co.id),
-        s.from('inspections').select('id,inspection_number,submitted_at,status,has_bypass,flag_resolved_at,truck_number,location_from,location_to').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at', { ascending:false })
+        s.from('inspections').select('id,inspection_number,submitted_at,status,has_bypass,flag_resolved_at,truck_number,location_from,location_to,template_snapshot').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at', { ascending:false })
       ]);
       [employees, trucks, inspections, recent].forEach(result => {
         if (result.error) throw result.error;
@@ -123,15 +123,36 @@
       dialog.id = 'flaggedReviewDialog';
       dialog.innerHTML = '<div class="flagged-review"><div class="head"><div><h2>Flagged / Bypassed Inspections</h2><p>Submissions requiring review during the last seven days.</p></div><button type="button" data-close-flagged aria-label="Close">×</button></div><div id="flaggedReviewList"></div><div class="actions"><button type="button" data-close-flagged>Close</button></div></div>';
       document.body.appendChild(dialog);
-      dialog.addEventListener('click', event => { if (event.target.closest('[data-close-flagged]')) dialog.close(); });
+      dialog.addEventListener('click', event => {
+        if (event.target.closest('[data-close-flagged]')) return dialog.close();
+        const button = event.target.closest('[data-view-flag]');
+        if (button) openFlagIssue(button.dataset.viewFlag);
+      });
     }
     $('flaggedReviewList').innerHTML = flaggedInspectionRows.length ? flaggedInspectionRows.map(row => `
-      <button type="button" class="flagged-review-item" data-inspection-id="${esc(row.id)}">
+      <div class="flagged-review-item">
         <strong>${esc(row.inspection_number || 'Inspection')}</strong>
         <span>${esc(new Date(row.submitted_at).toLocaleString())}</span>
         <span>Truck ${esc(row.truck_number || '—')} · ${esc(row.location_from || '—')} → ${esc(row.location_to || '—')}</span>
-        <em>${row.has_bypass ? 'Bypassed question' : 'Flagged'} — Open full submission</em>
-      </button>`).join('') : '<p>No flagged or bypassed inspections were found in the last seven days.</p>';
+        <div class="flagged-review-actions"><button type="button" data-view-flag="${esc(row.id)}">View Flag</button><button type="button" data-inspection-id="${esc(row.id)}">Open Full Inspection</button></div>
+      </div>`).join('') : '<p>No flagged or bypassed inspections were found in the last seven days.</p>';
+    dialog.showModal();
+  }
+
+  function openFlagIssue(id) {
+    const row = flaggedInspectionRows.find(item => item.id === id);
+    if (!row) return;
+    const snapshot = row.template_snapshot || {};
+    const what = snapshot.flagged_item || snapshot.flag_item || (row.has_bypass ? 'Required inspection photos were bypassed.' : 'The inspection was marked as flagged.');
+    const why = snapshot.bypass_reason || snapshot.flag_reason || snapshot.flagged_reason || 'No reason was recorded.';
+    let dialog = $('flagIssueDialog');
+    if (!dialog) {
+      dialog = document.createElement('dialog');
+      dialog.id = 'flagIssueDialog';
+      document.body.appendChild(dialog);
+      dialog.addEventListener('click', event => { if (event.target.closest('[data-close-flag-issue]')) dialog.close(); });
+    }
+    dialog.innerHTML = `<div class="flag-issue"><div class="head"><h2>Flagged Issue</h2><button type="button" data-close-flag-issue aria-label="Close">×</button></div><div><small>What was flagged</small><strong>${esc(what)}</strong></div><div><small>Why it was flagged</small><strong>${esc(why)}</strong></div><div class="actions"><button type="button" data-close-flag-issue>Close</button><button type="button" class="primary" data-inspection-id="${esc(row.id)}">Open Full Inspection</button></div></div>`;
     dialog.showModal();
   }
 
