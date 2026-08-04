@@ -28,10 +28,8 @@
     today.setHours(0, 0, 0, 0);
     const date = new Date(`${value}T00:00:00`);
     if (Number.isNaN(date.getTime())) return null;
-    let months = (date.getFullYear() - today.getFullYear()) * 12 +
+    return (date.getFullYear() - today.getFullYear()) * 12 +
       date.getMonth() - today.getMonth();
-    if (date.getDate() < today.getDate()) months -= 1;
-    return months;
   };
   const complianceStatus = (value, type) => {
     if (!value) return { className: '', countdown: 'Date not entered' };
