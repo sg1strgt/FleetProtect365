@@ -4,7 +4,7 @@
   if (!s) return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  let profile, company, legalFolderIdValue = '', questionType = 'question_pre', auditRows = [];
+  let profile, company, legalFolderIdValue = '', questionType = 'question_pre', auditRows = [], flaggedInspectionRows = [];
 
   async function context() {
     if (profile && company) return { profile, company };
@@ -90,7 +90,7 @@
         s.from('employee_profiles').select('role,status').eq('company_id', co.id).is('deleted_at', null),
         s.from('trucks').select('status').eq('company_id', co.id).is('deleted_at', null),
         s.from('inspections').select('*', { count:'exact', head:true }).eq('company_id', co.id),
-        s.from('inspections').select('submitted_at,status,has_bypass').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at')
+        s.from('inspections').select('id,inspection_number,submitted_at,status,has_bypass,flag_resolved_at,truck_number,location_from,location_to').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at', { ascending:false })
       ]);
       [employees, trucks, inspections, recent].forEach(result => {
         if (result.error) throw result.error;
@@ -101,7 +101,8 @@
       $('totalInspectionCount').textContent = inspections.count || 0;
       const rows = recent.data || [];
       $('inspectionLast7Count').textContent = rows.length;
-      const flagged = rows.filter(x => x.has_bypass || String(x.status).toLowerCase() === 'flagged').length;
+      flaggedInspectionRows = rows.filter(x => !x.flag_resolved_at && (x.has_bypass || String(x.status).toLowerCase() === 'flagged'));
+      const flagged = flaggedInspectionRows.length;
       const verified = rows.filter(x => !x.has_bypass && String(x.status).toLowerCase() === 'verified').length;
       $('inspectionFlaggedCount').textContent = flagged;
       $('inspectionVerifiedRate').textContent = rows.length ? `${Math.round((verified / rows.length) * 100)}%` : '—';
@@ -113,6 +114,25 @@
     const date = value instanceof Date ? value : new Date(value);
     if (Number.isNaN(date.getTime())) return '';
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  }
+
+  function openFlaggedReview() {
+    let dialog = $('flaggedReviewDialog');
+    if (!dialog) {
+      dialog = document.createElement('dialog');
+      dialog.id = 'flaggedReviewDialog';
+      dialog.innerHTML = '<div class="flagged-review"><div class="head"><div><h2>Flagged / Bypassed Inspections</h2><p>Submissions requiring review during the last seven days.</p></div><button type="button" data-close-flagged aria-label="Close">×</button></div><div id="flaggedReviewList"></div><div class="actions"><button type="button" data-close-flagged>Close</button></div></div>';
+      document.body.appendChild(dialog);
+      dialog.addEventListener('click', event => { if (event.target.closest('[data-close-flagged]')) dialog.close(); });
+    }
+    $('flaggedReviewList').innerHTML = flaggedInspectionRows.length ? flaggedInspectionRows.map(row => `
+      <button type="button" class="flagged-review-item" data-inspection-id="${esc(row.id)}">
+        <strong>${esc(row.inspection_number || 'Inspection')}</strong>
+        <span>${esc(new Date(row.submitted_at).toLocaleString())}</span>
+        <span>Truck ${esc(row.truck_number || '—')} · ${esc(row.location_from || '—')} → ${esc(row.location_to || '—')}</span>
+        <em>${row.has_bypass ? 'Bypassed question' : 'Flagged'} — Open full submission</em>
+      </button>`).join('') : '<p>No flagged or bypassed inspections were found in the last seven days.</p>';
+    dialog.showModal();
   }
 
   function renderInspectionTrend(rows, start) {
@@ -334,6 +354,9 @@
     url.closest('label')?.after(label);
   }
   addDashboardControls(); addLogoFilePicker(); wireNavigation();
+  $('flaggedReviewCard')?.addEventListener('click',openFlaggedReview);
+  $('flaggedReviewCard')?.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openFlaggedReview();}});
+  document.addEventListener('fp365:inspection-resolved',async()=>{$('flaggedReviewDialog')?.close();await loadDashboardStats();});
   $('refreshDashboard')?.addEventListener('click',loadDashboardStats); $('saveSettings').onclick=saveSettings;
   $('companyNotes')?.addEventListener('input',updateSettingsPreview); $('logoUrl')?.addEventListener('input',updateSettingsPreview); $('logoScale')?.addEventListener('input',updateSettingsPreview);
   $('exportAuditCsv').onclick=async()=>{await loadAuditRows();auditCsv();}; $('exportAuditPdf').onclick=async()=>{await loadAuditRows();auditPdf();};

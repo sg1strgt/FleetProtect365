@@ -17,14 +17,17 @@
   async function openInspection(id) {
     const content = document.getElementById('inspectionViewerContent');
     content.innerHTML = '<p>Loading submission…</p>';
-    dialog.showModal();
+    if (!dialog.open) dialog.showModal();
     const { data: inspection, error } = await client.from('inspections').select('*').eq('id', id).single();
     if (error) {
       content.innerHTML = `<h3>Unable to open submission</h3><p>${esc(error.message)}</p><button type="button" data-close-inspection>Close</button>`;
       return;
     }
-    const [{ data: driver }, { data: reports }, { data: photoRows, error: photoError }] = await Promise.all([
+    const [{ data: driver }, { data: reviewer }, { data: reports }, { data: photoRows, error: photoError }] = await Promise.all([
       client.from('employee_profiles').select('full_name,display_name,employee_id,email').eq('id', inspection.driver_id).maybeSingle(),
+      inspection.flag_resolved_by
+        ? client.from('employee_profiles').select('full_name,display_name').eq('id', inspection.flag_resolved_by).maybeSingle()
+        : Promise.resolve({ data:null }),
       client.from('end_shift_reports').select('*').contains('inspection_ids', [inspection.id]).order('emailed_at', { ascending: false }).limit(1),
       client.from('inspection_photos').select('photo_key,photo_label,display_order,is_required,storage_path').eq('inspection_id', inspection.id).is('deleted_at', null).order('display_order')
     ]);
@@ -55,6 +58,18 @@
         <div><small>Driver Certified</small><strong>${inspection.driver_certified ? 'Yes' : 'No'}</strong></div>
         <div><small>Bypass / Flag</small><strong>${inspection.has_bypass ? 'Yes' : 'No'}</strong></div>
       </div>
+      ${(inspection.has_bypass || String(inspection.status).toLowerCase() === 'flagged') ? `<div class="inspection-resolution-box">
+        <h4>Administrative Review</h4>
+        ${inspection.flag_resolved_at ? `
+          <p><strong>Reviewed/Resolved</strong> ${esc(dateTime(inspection.flag_resolved_at))}</p>
+          <p>Reviewed by ${esc(reviewer?.full_name || reviewer?.display_name || 'Administrator')}</p>
+          <p><strong>Resolution note:</strong> ${esc(inspection.flag_resolution_note)}</p>` : `
+          <p>This submission still requires administrative review.</p>
+          <label for="flagResolutionNote">Required resolution note</label>
+          <textarea id="flagResolutionNote" maxlength="1000" rows="4" placeholder="Describe how the flagged item was reviewed or corrected"></textarea>
+          <p id="flagResolutionMsg" class="form-message"></p>
+          <button type="button" class="primary" data-resolve-inspection="${esc(inspection.id)}">Mark Reviewed/Resolved</button>`}
+      </div>` : ''}
       <div class="inspection-photo-box">
         <h4>Inspection Photos</h4>
         ${photoError
@@ -77,6 +92,19 @@
     const submission = event.target.closest('[data-inspection-id]');
     if (submission) return openInspection(submission.dataset.inspectionId);
     if (event.target.closest('[data-close-inspection]')) return dialog.close();
+    const resolveButton = event.target.closest('[data-resolve-inspection]');
+    if (resolveButton) {
+      const note = document.getElementById('flagResolutionNote')?.value.trim() || '';
+      const message = document.getElementById('flagResolutionMsg');
+      if (!note) { if (message) message.textContent = 'Enter a resolution note before marking this inspection resolved.'; return; }
+      resolveButton.disabled = true;
+      if (message) message.textContent = 'Saving review…';
+      const { error } = await client.rpc('resolve_inspection_flag', { p_inspection_id:resolveButton.dataset.resolveInspection, p_resolution_note:note });
+      resolveButton.disabled = false;
+      if (error) { if (message) message.textContent = error.message; return; }
+      document.dispatchEvent(new CustomEvent('fp365:inspection-resolved'));
+      return openInspection(resolveButton.dataset.resolveInspection);
+    }
     const photoButton = event.target.closest('[data-open-photo]');
     if (photoButton) return window.open(photoButton.dataset.openPhoto, '_blank', 'noopener');
     const reportButton = event.target.closest('[data-open-report]');
