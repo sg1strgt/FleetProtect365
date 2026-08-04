@@ -4,7 +4,7 @@
   if (!s) return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  let profile, company, legalFolderIdValue = '', questionType = 'question_pre', auditRows = [], flaggedInspectionRows = [];
+  let profile, company, legalFolderIdValue = '', questionType = 'question_pre', auditRows = [], flaggedInspectionRows = [], expirationAlerts = [];
 
   async function context() {
     if (profile && company) return { profile, company };
@@ -48,7 +48,7 @@
         if (moving && moving !== card) stats.insertBefore(moving, card);
       });
       tools.addEventListener('click', e => {
-        const sizes = ['small','medium','large'];
+        const sizes = ['extra-small','compact','small','medium','large'];
         let at = sizes.indexOf(card.dataset.size || 'small');
         if (e.target.closest('[data-widget-smaller]')) at = Math.max(0, at - 1);
         else if (e.target.closest('[data-widget-larger]')) at = Math.min(sizes.length - 1, at + 1);
@@ -82,13 +82,74 @@
     };
   }
 
+  function daysUntilExpiration(value) {
+    const match = String(value || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return null;
+    const due = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    due.setHours(0, 0, 0, 0);
+    return Math.round((due - today) / 86400000);
+  }
+
+  function formatExpirationDate(value) {
+    const match = String(value || '').slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return 'Date unavailable';
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).toLocaleDateString();
+  }
+
+  function buildExpirationAlerts(employees, trucks) {
+    const alerts = [];
+    const add = (recordType, id, name, item, value) => {
+      const days = daysUntilExpiration(value);
+      if (days === null || days < 0 || days > 30) return;
+      alerts.push({ recordType, id, name, item, value, days });
+    };
+    employees.forEach(employee => {
+      const name = employee.full_name || employee.display_name || `Employee ${employee.employee_id || ''}`.trim();
+      add('employee', employee.id, name, 'Driver License', employee.drivers_license_expires);
+      add('employee', employee.id, name, 'Medical Card', employee.medical_card_expires);
+    });
+    trucks.forEach(truck => {
+      const name = `Truck ${truck.truck_number || ''}`.trim();
+      add('truck', truck.id, name, 'Quarterly Inspection', truck.quarterly_inspection);
+      add('truck', truck.id, name, 'Annual Inspection', truck.annual_inspection);
+      add('truck', truck.id, name, 'Insurance', truck.insurance_expiration);
+    });
+    return alerts.sort((a, b) => a.days - b.days || a.name.localeCompare(b.name));
+  }
+
+  function renderExpirationAlerts() {
+    const list = $('expirationNearList');
+    if (!list) return;
+    if (!expirationAlerts.length) {
+      list.innerHTML = '<p class="expiration-alert-empty">No employee or truck expiration dates are due within the next 30 days.</p>';
+      return;
+    }
+    list.innerHTML = expirationAlerts.map(alert => `<button type="button" class="expiration-alert-row" data-expiration-type="${alert.recordType}" data-expiration-id="${esc(alert.id)}"><span class="expiration-alert-kind">${alert.recordType === 'employee' ? 'Employee Alert' : 'Truck Alert'}</span><strong>${esc(alert.name)}</strong><span>${esc(alert.item)} · ${esc(formatExpirationDate(alert.value))}</span><em>${alert.days === 0 ? 'Due today' : `${alert.days} day${alert.days === 1 ? '' : 's'} remaining`}</em></button>`).join('');
+  }
+
+  function openExpirationAlerts() {
+    if ($('dashboardWidgets')?.classList.contains('customizing')) return;
+    renderExpirationAlerts();
+    $('expirationNearDialog')?.showModal();
+  }
+
+  async function openExpirationRecord(recordType, recordId) {
+    $('expirationNearDialog')?.close();
+    document.querySelector(`nav [data-view="${recordType === 'employee' ? 'drivers' : 'trucks'}"]`)?.click();
+    await new Promise(resolve => setTimeout(resolve, 175));
+    if (recordType === 'employee') window.FP365_OPEN_EMPLOYEE_EDITOR?.(recordId);
+    else await window.FP365_OPEN_TRUCK_EDITOR?.(recordId);
+  }
+
   async function loadDashboardStats() {
     try {
       const { company: co } = await context();
       const since = new Date(); since.setHours(0,0,0,0); since.setDate(since.getDate() - 6);
       const [employees, trucks, inspections, recent] = await Promise.all([
-        s.from('employee_profiles').select('role,status').eq('company_id', co.id).is('deleted_at', null),
-        s.from('trucks').select('status').eq('company_id', co.id).is('deleted_at', null),
+        s.from('employee_profiles').select('id,display_name,full_name,employee_id,role,status,drivers_license_expires,medical_card_expires').eq('company_id', co.id).is('deleted_at', null),
+        s.from('trucks').select('id,truck_number,status,quarterly_inspection,annual_inspection,insurance_expiration').eq('company_id', co.id).is('deleted_at', null),
         s.from('inspections').select('*', { count:'exact', head:true }).eq('company_id', co.id),
         s.from('inspections').select('id,inspection_number,submitted_at,status,has_bypass,flag_resolved_at,truck_number,location_from,location_to,template_snapshot').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at', { ascending:false })
       ]);
@@ -98,6 +159,14 @@
       $('userCount').textContent = (employees.data || []).length;
       $('activeDriverCount').textContent = (employees.data || []).filter(x => x.role === 'driver' && x.status === 'active').length;
       $('truckCount').textContent = (trucks.data || []).filter(x => x.status === 'active').length;
+      expirationAlerts = buildExpirationAlerts(employees.data || [], trucks.data || []);
+      $('expirationNearCount').textContent = expirationAlerts.length;
+      const employeeAlertCount = expirationAlerts.filter(x => x.recordType === 'employee').length;
+      const truckAlertCount = expirationAlerts.filter(x => x.recordType === 'truck').length;
+      $('expirationNearSummary').textContent = expirationAlerts.length
+        ? `${employeeAlertCount} employee · ${truckAlertCount} truck`
+        : 'none due within 30 days';
+      $('expirationNearCard').classList.toggle('has-alerts', expirationAlerts.length > 0);
       if ($('driverAppRefresh')) $('driverAppRefresh').textContent = `${Number(co.driver_entry_retention_hours) || 24} hr`;
       $('totalInspectionCount').textContent = inspections.count || 0;
       const rows = recent.data || [];
@@ -387,6 +456,11 @@
     url.closest('label')?.after(label);
   }
   addDashboardControls(); addLogoFilePicker(); wireNavigation();
+  $('expirationNearCard')?.addEventListener('click',openExpirationAlerts);
+  $('expirationNearCard')?.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpirationAlerts();}});
+  $('closeExpirationNear')?.addEventListener('click',()=>$('expirationNearDialog').close());
+  $('closeExpirationNearBottom')?.addEventListener('click',()=>$('expirationNearDialog').close());
+  $('expirationNearList')?.addEventListener('click',event=>{const row=event.target.closest('[data-expiration-id]');if(row)openExpirationRecord(row.dataset.expirationType,row.dataset.expirationId);});
   $('flaggedReviewCard')?.addEventListener('click',openFlaggedReview);
   $('flaggedReviewCard')?.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openFlaggedReview();}});
   document.addEventListener('fp365:inspection-resolved',async()=>{$('flaggedReviewDialog')?.close();await loadDashboardStats();});

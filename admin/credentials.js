@@ -210,6 +210,8 @@
     $('viewLockedUntil').textContent = formatDateTime(data.locked_until);
   }
 
+  window.FP365_OPEN_EMPLOYEE_EDITOR = openEditor;
+
   function applyProfileFilter() {
     let visible = 0;
     document.querySelectorAll('#driversBody tr').forEach((row) => {

@@ -314,5 +314,10 @@
     setTimeout(loadTrucks, 100);
   });
 
+  window.FP365_OPEN_TRUCK_EDITOR = async (truckId) => {
+    if (!truckRecords.some((item) => item.id === truckId)) await loadTrucks();
+    openTruck(truckId);
+  };
+
   setupDates();
 })();
