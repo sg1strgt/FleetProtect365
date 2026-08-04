@@ -151,7 +151,9 @@
     $('editEmployeeId').value = data.employee_id || '';
     $('editPhone').value = data.phone || '';
     $('editEmail').value = data.email || '';
-    $('editStatus').value = data.status || 'active';
+    const protectedSuperAdmin = data.role === 'super_admin';
+    $('editStatus').value = protectedSuperAdmin ? 'active' : (data.status || 'active');
+    $('editStatus').disabled = protectedSuperAdmin;
     $('editDlNumber').value = data.drivers_license_number || '';
     $('editDlState').value = data.drivers_license_state || '';
     setDateValue('editDlExpires', data.drivers_license_expires || '');
@@ -169,7 +171,7 @@
       $('editRole').disabled = false;
       $('editRole').value = data.role;
     }
-    $('deleteUser').classList.toggle('hidden', data.role === 'super_admin');
+    $('deleteUser').classList.toggle('hidden', !isSuperAdmin() || protectedSuperAdmin);
 
     const failed = Math.max(Number(data.failed_login_count || 0), Number(data.failed_login_attempts || 0));
     $('editCredentialStatus').innerHTML =

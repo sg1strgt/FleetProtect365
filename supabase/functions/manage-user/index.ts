@@ -195,7 +195,7 @@ export default {
       const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
       const role = target.role === "super_admin" ? "super_admin" : String(body.role || target.role);
-      const status = String(body.status || target.status);
+      const status = target.role === "super_admin" ? "active" : String(body.status || target.status);
       if (!displayName || !fullName || !employeeId || !phone || !email) {
         return json({ ok: false, error: "Complete all required fields." }, 400);
       }
