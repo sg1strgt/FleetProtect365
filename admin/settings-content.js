@@ -268,10 +268,44 @@
   }
 
   async function loadAuditRows() {
-    const {company:co}=await context(); const {data,error}=await s.from('employee_status_audit').select('*,employee_profiles!employee_status_audit_employee_profile_id_fkey(display_name,full_name)').eq('company_id',co.id).order('changed_at',{ascending:false}).limit(1000); if(error)throw error; auditRows=data||[]; return auditRows;
+    const {company:co}=await context();
+    const {data,error}=await s.from('employee_status_audit').select('*').eq('company_id',co.id).order('changed_at',{ascending:false}).limit(1000);if(error)throw error;
+    const rows=data||[],ids=[...new Set(rows.flatMap(x=>[x.employee_profile_id,x.changed_by]).filter(Boolean))];
+    let profiles=[];if(ids.length){const result=await s.from('employee_profiles').select('id,display_name,full_name,employee_id').in('id',ids);if(result.error)throw result.error;profiles=result.data||[];}
+    const byId=Object.fromEntries(profiles.map(x=>[x.id,x]));
+    auditRows=rows.map(x=>({...x,_employee:byId[x.employee_profile_id]||null,_changedBy:byId[x.changed_by]||null}));return auditRows;
   }
-  function auditCsv(){const rows=[['Employee','Previous Status','New Status','Reason','Changed At'],...auditRows.map(x=>[x.employee_profiles?.display_name||x.employee_profiles?.full_name||'User',x.previous_status||'',x.new_status||'',x.reason||'',x.changed_at])];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`FP365-Audit-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href);}
-  function auditPdf(){const w=window.open('','_blank');if(!w)return alert('Allow pop-ups to export the PDF.');w.document.write(`<title>Fleet Protect 365 Audit Trail</title><style>body{font-family:Arial;padding:24px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:7px;text-align:left;font-size:12px}</style><h1>Fleet Protect 365 Audit Trail</h1><table><tr><th>Employee</th><th>Previous</th><th>New</th><th>Reason</th><th>Changed</th></tr>${auditRows.map(x=>`<tr><td>${esc(x.employee_profiles?.display_name||x.employee_profiles?.full_name||'User')}</td><td>${esc(x.previous_status||'')}</td><td>${esc(x.new_status||'')}</td><td>${esc(x.reason||'')}</td><td>${esc(new Date(x.changed_at).toLocaleString())}</td></tr>`).join('')}</table>`);w.document.close();setTimeout(()=>w.print(),250);}
+  const auditEmployee=x=>x._employee?.display_name||x._employee?.full_name||'User';
+  const auditChangedBy=x=>x._changedBy?.display_name||x._changedBy?.full_name||'Unknown';
+  const auditDate=x=>x.changed_at?new Date(x.changed_at).toLocaleDateString():'';
+  const auditTime=x=>x.changed_at?new Date(x.changed_at).toLocaleTimeString():'';
+  function auditCsv(){const rows=[['Employee Name','Employee ID','Previous Status','New Status','Reason','Changed By','Changed Date','Changed Time'],...auditRows.map(x=>[auditEmployee(x),x._employee?.employee_id||'',x.previous_status||'',x.new_status||'',x.reason||'',auditChangedBy(x),auditDate(x),auditTime(x)])];const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`FP365-Audit-${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href);}
+  function auditPdf(){
+    const JsPdf=window.jspdf?.jsPDF;
+    if(!JsPdf)return alert('The PDF download tool did not load. Refresh the page and try again.');
+    const doc=new JsPdf({orientation:'landscape',unit:'pt',format:'letter'});
+    doc.setFontSize(18);doc.text('Fleet Protect 365 Audit Trail',40,38);
+    doc.setFontSize(9);doc.setTextColor(90);doc.text(`Exported ${new Date().toLocaleString()}`,40,55);doc.setTextColor(0);
+    const body=auditRows.map(x=>[
+      auditEmployee(x),
+      x._employee?.employee_id||'',
+      x.previous_status||'',
+      x.new_status||'',
+      x.reason||'',
+      auditChangedBy(x),
+      auditDate(x),
+      auditTime(x)
+    ]);
+    doc.autoTable({
+      startY:70,
+      head:[['Employee Name','Employee ID','Previous','New','Reason','Changed By','Date','Time']],
+      body,
+      styles:{fontSize:7,cellPadding:4,overflow:'linebreak'},
+      headStyles:{fillColor:[31,111,209]},
+      columnStyles:{0:{cellWidth:100},1:{cellWidth:65},2:{cellWidth:58},3:{cellWidth:58},4:{cellWidth:165},5:{cellWidth:100},6:{cellWidth:70},7:{cellWidth:75}}
+    });
+    doc.save(`FP365-Audit-${new Date().toISOString().slice(0,10)}.pdf`);
+  }
 
   function wireNavigation() {
     document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => {
