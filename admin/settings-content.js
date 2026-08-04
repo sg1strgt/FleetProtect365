@@ -277,7 +277,7 @@
     $('contentForm').reset(); $('contentId').value = item?.id || ''; $('contentType').value = type;
     $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = item?.body || ''; $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
     $('contentUrlLabel').classList.toggle('hidden', type.startsWith('question_')); $('contentUrl').classList.toggle('hidden', type.startsWith('question_'));
-    const canPermanentlyDelete = profile?.role === 'super_admin' && type === 'document';
+    const canPermanentlyDelete = profile?.role === 'super_admin' && ['document','fmcsa'].includes(type);
     $('deleteContent').textContent = canPermanentlyDelete ? 'Delete Permanently' : 'Make Inactive';
     $('deleteContent').classList.toggle('hidden', !item || (!canPermanentlyDelete && !item.active));
     $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
@@ -293,14 +293,22 @@
   }
   async function deleteContent() {
     const {profile:p}=await context(),id=$('contentId').value,type=$('contentType').value;
-    const permanent = p.role === 'super_admin' && type === 'document';
-    if (!confirm(permanent ? 'Permanently delete this document? This cannot be undone.' : 'Make this item inactive?')) return;
+    const permanent = p.role === 'super_admin' && ['document','fmcsa'].includes(type);
+    if (!confirm(permanent ? `Permanently delete this ${type === 'fmcsa' ? 'FMCSA link' : 'document'}? This cannot be undone.` : 'Make this item inactive?')) return;
     const query = permanent
       ? s.from('company_content').delete().eq('id',id)
       : s.from('company_content').update({active:false,updated_by:p.id,updated_at:new Date().toISOString()}).eq('id',id);
     const {error}=await query;
     if(error)return $('contentMsg').textContent=error.message;
     $('contentDialog').close(); loadContent(type === 'document' ? 'documents' : type);
+  }
+  async function deleteFmcsaLink(id) {
+    const {profile:p}=await context();
+    if(p.role!=='super_admin')return;
+    if(!confirm('Permanently delete this FMCSA link? This cannot be undone.'))return;
+    const {error}=await s.from('company_content').delete().eq('id',id).eq('content_type','fmcsa');
+    if(error){alert(error.message);return;}
+    await loadContent('fmcsa');
   }
   function targetFor(type){return type.startsWith('question_')?'questionsList':`${type}List`;}
   function driveFolderUrl(id){return id?`https://drive.google.com/drive/folders/${encodeURIComponent(id)}`:'';}
@@ -316,8 +324,9 @@
       updateFolderLinks(); const types=type==='questions'?[questionType]:[type === 'documents' ? 'document' : type];
       const {data,error}=await s.from('company_content').select('*').eq('company_id',co.id).in('content_type',types).order('sort_order').order('title'); if(error)throw error;
       const target=$(targetFor(type==='questions'?questionType:type)); if(!target)return;
-      target.innerHTML=(data||[]).map(item=>`<article class="content-item${item.active?'':' content-item-inactive'}"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><button data-edit-content="${esc(item.id)}">Edit</button></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
+      target.innerHTML=(data||[]).map(item=>`<article class="content-item${item.active?'':' content-item-inactive'}"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><div class="content-item-actions"><button data-edit-content="${esc(item.id)}">Edit</button>${p.role==='super_admin'&&item.content_type==='fmcsa'?`<button class="danger" data-delete-fmcsa="${esc(item.id)}">Delete</button>`:''}</div></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
       target.querySelectorAll('[data-edit-content]').forEach(btn=>btn.onclick=()=>openContent((data||[]).find(x=>x.id===btn.dataset.editContent).content_type,(data||[]).find(x=>x.id===btn.dataset.editContent)));
+      target.querySelectorAll('[data-delete-fmcsa]').forEach(btn=>btn.onclick=()=>deleteFmcsaLink(btn.dataset.deleteFmcsa));
     } catch(error){const target=$(targetFor(type==='questions'?questionType:type));if(target)target.innerHTML=`<p>${esc(error.message)}</p>`;}
   }
 
