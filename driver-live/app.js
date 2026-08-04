@@ -379,8 +379,13 @@
     if (changed) await dbSet("entries", state.entries);
   }
 
-  async function removeConfirmedEntriesAfter24Hours() {
-    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+  function localEntryRetentionHours() {
+    const configured = Number(cfg.LOCAL_ENTRY_RETENTION_HOURS);
+    return Number.isFinite(configured) && configured > 0 ? configured : 24;
+  }
+
+  async function removeConfirmedEntriesAfterRetentionPeriod() {
+    const cutoff = Date.now() - (localEntryRetentionHours() * 60 * 60 * 1000);
     const kept = state.entries.filter((entry) => {
       if (!entry.end_shift_email_confirmed_at) return true;
       if (!entry.synced_to_supabase || !entry.photos_synced_to_supabase) return true;
@@ -1087,7 +1092,7 @@ function renderEndShift() {
 
         showModal(
           "Report emailed",
-          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to the Admin and your driver email.</p><p>The Driver App will remove these completed records tomorrow. Your phone’s photo gallery is not changed.</p><p>Have a good night.</p>`
+          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to the Admin and your driver email.</p><p>The Driver App will remove these completed records in ${localEntryRetentionHours()} hours. Your phone’s photo gallery is not changed.</p><p>Have a good night.</p>`
         );
         await supabaseClient.auth.signOut();
         localStorage.removeItem("fp365_user");
@@ -1163,7 +1168,7 @@ function renderEndShift() {
 
     localStorage.removeItem("fp365_draft");
     localStorage.removeItem("fp365_entries");
-    await removeConfirmedEntriesAfter24Hours();
+    await removeConfirmedEntriesAfterRetentionPeriod();
     if (supabaseClient) {
       const { data } = await supabaseClient.auth.getSession();
       if (!data.session) {
