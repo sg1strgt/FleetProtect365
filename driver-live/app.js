@@ -66,7 +66,8 @@
     current: null,
     selectedEntry: null,
     pretripDone: false,
-    companyContent: null
+    companyContent: null,
+    entryRetentionHours: Number(readJson("fp365_entry_retention_hours", cfg.LOCAL_ENTRY_RETENTION_HOURS || 24)) || 24
   };
 
   const DEFAULT_QUESTIONS = {
@@ -198,6 +199,36 @@
       state.companyContent = data || [];
     } catch (error) {
       console.warn("Company questions and links are temporarily unavailable; using built-in questions.", error);
+    }
+  }
+
+  async function loadCompanyPreferences() {
+    if (!supabaseClient || !state.user) return;
+    try {
+      let companyId = state.user.company_id;
+      if (!companyId && state.user.id) {
+        const { data: profile, error: profileError } = await supabaseClient
+          .from("employee_profiles")
+          .select("company_id")
+          .eq("id", state.user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        companyId = profile?.company_id || "";
+      }
+      if (!companyId) return;
+      const { data, error } = await supabaseClient
+        .from("companies")
+        .select("driver_entry_retention_hours")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (error) throw error;
+      const hours = Number(data?.driver_entry_retention_hours);
+      if (Number.isInteger(hours) && hours >= 1 && hours <= 720) {
+        state.entryRetentionHours = hours;
+        writeJson("fp365_entry_retention_hours", hours);
+      }
+    } catch (error) {
+      console.warn("Company cleanup preference unavailable:", error);
     }
   }
 
@@ -380,7 +411,7 @@
   }
 
   function localEntryRetentionHours() {
-    const configured = Number(cfg.LOCAL_ENTRY_RETENTION_HOURS);
+    const configured = Number(state.entryRetentionHours || cfg.LOCAL_ENTRY_RETENTION_HOURS);
     return Number.isFinite(configured) && configured > 0 ? configured : 24;
   }
 
@@ -518,7 +549,8 @@
         if (sessionError) throw sessionError;
         state.user = data.profile;
         writeJson("fp365_user", state.user);
-        await Promise.all([loadActiveTrucks(), loadCompanyContent()]);
+        await Promise.all([loadActiveTrucks(), loadCompanyContent(), loadCompanyPreferences()]);
+        await removeConfirmedEntriesAfterRetentionPeriod();
         navigate(data.mustChangePassword ? "passwordChange" : "home", false);
       } catch (err) {
         showModal("Login unsuccessful", `<p>${esc(err.message || String(err))}</p>`);
@@ -1092,7 +1124,7 @@ function renderEndShift() {
 
         showModal(
           "Report emailed",
-          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to the Admin and your driver email.</p><p>The Driver App will remove these completed records in ${localEntryRetentionHours()} hours. Your phone’s photo gallery is not changed.</p><p>Have a good night.</p>`
+          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to the Admin and your driver email.</p><p>Have a good night.</p>`
         );
         await supabaseClient.auth.signOut();
         localStorage.removeItem("fp365_user");
@@ -1176,7 +1208,8 @@ function renderEndShift() {
         localStorage.removeItem("fp365_user");
         state.screen = "login";
       } else {
-        await Promise.all([loadActiveTrucks(), loadCompanyContent()]);
+        await Promise.all([loadActiveTrucks(), loadCompanyContent(), loadCompanyPreferences()]);
+        await removeConfirmedEntriesAfterRetentionPeriod();
         await syncPendingInspections();
       }
     }

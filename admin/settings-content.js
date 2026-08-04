@@ -98,6 +98,7 @@
       $('userCount').textContent = (employees.data || []).length;
       $('activeDriverCount').textContent = (employees.data || []).filter(x => x.role === 'driver' && x.status === 'active').length;
       $('truckCount').textContent = (trucks.data || []).filter(x => x.status === 'active').length;
+      if ($('driverAppRefresh')) $('driverAppRefresh').textContent = `${Number(co.driver_entry_retention_hours) || 24} hr`;
       $('totalInspectionCount').textContent = inspections.count || 0;
       const rows = recent.data || [];
       $('inspectionLast7Count').textContent = rows.length;
@@ -167,7 +168,7 @@
   async function loadSettings() {
     try {
       const { company: co } = await context(); company = co;
-      const values = {addressStreet:'address_street',addressSuite:'address_suite',addressCity:'address_city',addressState:'address_state',addressZip:'address_zip',companyNotes:'admin_notes',logoUrl:'logo_url',logoScale:'logo_scale',documentsFolderId:'documents_drive_folder_id'};
+      const values = {addressStreet:'address_street',addressSuite:'address_suite',addressCity:'address_city',addressState:'address_state',addressZip:'address_zip',companyNotes:'admin_notes',logoUrl:'logo_url',logoScale:'logo_scale',documentsFolderId:'documents_drive_folder_id',driverEntryRetentionHours:'driver_entry_retention_hours'};
       Object.entries(values).forEach(([id,key]) => { if ($(id)) $(id).value = co[key] ?? (id === 'logoScale' ? 100 : ''); });
       $('legalFolderSetting')?.classList.toggle('hidden', profile?.role !== 'super_admin');
       if (profile?.role === 'super_admin') {
@@ -221,7 +222,9 @@
     try {
       const { company: co } = await context();
       const logoFile = $('logoFile')?.files?.[0];
-      const update = {address_street:$('addressStreet').value.trim(),address_suite:$('addressSuite').value.trim()||null,address_city:$('addressCity').value.trim(),address_state:$('addressState').value.trim().toUpperCase(),address_zip:$('addressZip').value.trim(),admin_notes:$('companyNotes').value.trim()||null,logo_url:$('logoUrl').value.trim()||null,logo_scale:Number($('logoScale').value),storage_location:$('driveFolder').value.trim(),documents_drive_folder_id:$('documentsFolderId').value.trim()||null,contact_name:$('contactName').value.trim(),contact_email:$('contactEmail').value.trim(),contact_phone:$('contactPhone').value.trim()};
+      const retentionHours = Number($('driverEntryRetentionHours').value);
+      if (!Number.isInteger(retentionHours) || retentionHours < 1 || retentionHours > 720) throw new Error('Driver App Refresh must be between 1 and 720 hours.');
+      const update = {address_street:$('addressStreet').value.trim(),address_suite:$('addressSuite').value.trim()||null,address_city:$('addressCity').value.trim(),address_state:$('addressState').value.trim().toUpperCase(),address_zip:$('addressZip').value.trim(),admin_notes:$('companyNotes').value.trim()||null,logo_url:$('logoUrl').value.trim()||null,logo_scale:Number($('logoScale').value),storage_location:$('driveFolder').value.trim(),documents_drive_folder_id:$('documentsFolderId').value.trim()||null,contact_name:$('contactName').value.trim(),contact_email:$('contactEmail').value.trim(),contact_phone:$('contactPhone').value.trim(),driver_entry_retention_hours:retentionHours};
       if (!update.address_street || !update.address_city || !update.address_state || !update.address_zip) throw new Error('Street, City, State, and ZIP are required.');
       const { data, error } = await s.from('companies').update(update).eq('id', co.id).select('*').maybeSingle();
       if (error) throw error;
