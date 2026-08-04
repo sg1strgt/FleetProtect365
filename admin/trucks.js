@@ -15,13 +15,52 @@
   const formatDate = (value) => value
     ? new Date(`${value}T12:00:00`).toLocaleDateString()
     : 'Not entered';
-  const expiryClass = (value) => {
-    if (!value) return '';
+  const daysUntil = (value) => {
+    if (!value) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const date = new Date(`${value}T00:00:00`);
-    const days = Math.ceil((date - today) / 86400000);
-    return days < 0 ? 'truck-expired' : days <= 45 ? 'truck-expiring' : '';
+    return Number.isNaN(date.getTime()) ? null : Math.ceil((date - today) / 86400000);
+  };
+  const monthsUntil = (value) => {
+    if (!value) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    let months = (date.getFullYear() - today.getFullYear()) * 12 +
+      date.getMonth() - today.getMonth();
+    if (date.getDate() < today.getDate()) months -= 1;
+    return months;
+  };
+  const complianceStatus = (value, type) => {
+    if (!value) return { className: '', countdown: 'Date not entered' };
+    const days = daysUntil(value);
+    if (days === null) return { className: '', countdown: 'Invalid date' };
+    if (days < 0) {
+      const overdue = Math.abs(days);
+      return {
+        className: 'truck-expired',
+        countdown: `${overdue} day${overdue === 1 ? '' : 's'} overdue`
+      };
+    }
+    if (days === 0) return { className: 'truck-expiring', countdown: 'Due today' };
+    if (type === 'quarterly') {
+      return {
+        className: days <= 30 ? 'truck-expiring' : '',
+        countdown: `${days} day${days === 1 ? '' : 's'} remaining`
+      };
+    }
+    const months = monthsUntil(value);
+    return {
+      className: days <= 60 ? 'truck-expiring' : '',
+      countdown: months <= 0 ? 'Less than 1 mo remaining' :
+        `${months} mo remaining`
+    };
+  };
+  const complianceLine = (label, value, type) => {
+    const status = complianceStatus(value, type);
+    return `<div class="truck-compliance ${status.className}"><span>${label}: ${esc(formatDate(value))}</span><span class="truck-countdown">${esc(status.countdown)}</span></div>`;
   };
 
   function setDateValue(id, value = '') {
@@ -78,9 +117,9 @@
         <td>${esc(truck.license_plate || 'Not entered')} ${esc(truck.plate_state || '')}</td>
         <td><span class="badge ${esc(truck.status)}">${esc(String(truck.status).replaceAll('_', ' '))}</span>${truck.status_reason ? `<span class="truck-sub">Reason: ${esc(truck.status_reason)}</span>` : ''}${truck.status_changed_at ? `<span class="truck-sub">${truck.status === 'retired' ? 'Removed' : 'Changed'}: ${esc(new Date(truck.status_changed_at).toLocaleString())}</span>` : ''}${truck.removed_by ? `<span class="truck-sub">Removed by: ${esc(adminNames[truck.removed_by] || 'Administrator')}</span>` : ''}</td>
         <td>
-          <div class="truck-compliance ${expiryClass(truck.quarterly_inspection)}">Quarterly: ${esc(formatDate(truck.quarterly_inspection))}</div>
-          <div class="truck-compliance ${expiryClass(truck.annual_inspection)}">Annual: ${esc(formatDate(truck.annual_inspection))}</div>
-          <div class="truck-compliance ${expiryClass(truck.insurance_expiration)}">Insurance: ${esc(formatDate(truck.insurance_expiration))}</div>
+          ${complianceLine('Quarterly', truck.quarterly_inspection, 'quarterly')}
+          ${complianceLine('Annual', truck.annual_inspection, 'monthly')}
+          ${complianceLine('Insurance', truck.insurance_expiration, 'monthly')}
         </td>
         <td><div class="truck-action"><button type="button" data-edit-truck-profile="${esc(truck.id)}">Edit</button>${currentRole === 'super_admin' ? `<button type="button" class="danger" data-remove-truck="${esc(truck.id)}">Remove</button>` : ''}</div></td>
       </tr>`).join('');
