@@ -379,14 +379,13 @@
     if (changed) await dbSet("entries", state.entries);
   }
 
-  async function removeConfirmedPriorDayEntries() {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+  async function removeConfirmedEntriesAfter24Hours() {
+    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
     const kept = state.entries.filter((entry) => {
       if (!entry.end_shift_email_confirmed_at) return true;
       if (!entry.synced_to_supabase || !entry.photos_synced_to_supabase) return true;
-      const submitted = new Date(entry.submitted_at || entry.created_at || 0);
-      return submitted >= startOfToday;
+      const confirmed = Date.parse(entry.end_shift_email_confirmed_at);
+      return !Number.isFinite(confirmed) || confirmed > cutoff;
     });
     if (kept.length !== state.entries.length) {
       state.entries = kept;
@@ -1164,6 +1163,7 @@ function renderEndShift() {
 
     localStorage.removeItem("fp365_draft");
     localStorage.removeItem("fp365_entries");
+    await removeConfirmedEntriesAfter24Hours();
     if (supabaseClient) {
       const { data } = await supabaseClient.auth.getSession();
       if (!data.session) {
@@ -1173,7 +1173,6 @@ function renderEndShift() {
       } else {
         await Promise.all([loadActiveTrucks(), loadCompanyContent()]);
         await syncPendingInspections();
-        await removeConfirmedPriorDayEntries();
       }
     }
     render();
