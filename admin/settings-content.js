@@ -92,6 +92,9 @@
         s.from('inspections').select('*', { count:'exact', head:true }).eq('company_id', co.id),
         s.from('inspections').select('submitted_at,status,has_bypass').eq('company_id', co.id).gte('submitted_at', since.toISOString()).order('submitted_at')
       ]);
+      [employees, trucks, inspections, recent].forEach(result => {
+        if (result.error) throw result.error;
+      });
       $('userCount').textContent = (employees.data || []).length;
       $('activeDriverCount').textContent = (employees.data || []).filter(x => x.role === 'driver' && x.status === 'active').length;
       $('truckCount').textContent = (trucks.data || []).filter(x => x.status === 'active').length;
@@ -99,16 +102,23 @@
       const rows = recent.data || [];
       $('inspectionLast7Count').textContent = rows.length;
       const flagged = rows.filter(x => x.has_bypass || String(x.status).toLowerCase() === 'flagged').length;
+      const verified = rows.filter(x => !x.has_bypass && String(x.status).toLowerCase() === 'verified').length;
       $('inspectionFlaggedCount').textContent = flagged;
-      $('inspectionVerifiedRate').textContent = rows.length ? `${Math.round(((rows.length - flagged) / rows.length) * 100)}%` : '—';
+      $('inspectionVerifiedRate').textContent = rows.length ? `${Math.round((verified / rows.length) * 100)}%` : '—';
       renderInspectionTrend(rows, since);
     } catch (error) { console.error(error); }
   }
 
+  function localDateKey(value) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  }
+
   function renderInspectionTrend(rows, start) {
     const trend = $('inspectionTrend'); if (!trend) return;
-    const days = Array.from({length:7}, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return { date:d, key:d.toISOString().slice(0,10), count:0 }; });
-    rows.forEach(row => { const key = String(row.submitted_at || '').slice(0,10); const day = days.find(x => x.key === key); if (day) day.count += 1; });
+    const days = Array.from({length:7}, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return { date:d, key:localDateKey(d), count:0 }; });
+    rows.forEach(row => { const key = localDateKey(row.submitted_at); const day = days.find(x => x.key === key); if (day) day.count += 1; });
     const max = Math.max(1, ...days.map(x => x.count));
     trend.innerHTML = days.map(day => `<div class="trend-day" title="${esc(day.date.toLocaleDateString())}: ${day.count}"><span class="trend-value">${day.count}</span><span class="trend-bar" style="height:${Math.max(8, Math.round((day.count / max) * 76))}px"></span><small>${esc(day.date.toLocaleDateString(undefined,{weekday:'short'}))}</small></div>`).join('');
   }
