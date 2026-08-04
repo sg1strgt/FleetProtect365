@@ -15,7 +15,7 @@ type Photo = { name?: string; type?: string; data_url?: string };
 type Entry = {
   id?: string; employee_id?: string; driver_name?: string; type?: string;
   submitted_at?: string; created_at?: string; truck?: string; trailer1?: string;
-  trailer2?: string; dolly?: string; from?: string; to?: string; notes?: string;
+  trailer2?: string; dolly?: string; chassis?: string; from?: string; to?: string; notes?: string;
   bypass?: boolean; bypass_reason?: string; photos?: Record<string, Photo>;
   extra_photos?: Photo[];
 };
@@ -26,51 +26,6 @@ type RequestBody = {
   time_zone?: string; end_shift_completed_at?: string;
 };
 
-async function cleanupExpiredSupabasePdfs(
-  serviceClient: ReturnType<typeof createClient>
-): Promise<number> {
-  const retentionMessage = "Supabase PDF removed after the 30-day retention period.";
-  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: expiredReports, error: listError } = await serviceClient
-    .from("end_shift_reports")
-    .select("id, storage_path")
-    .eq("drive_status", "uploaded")
-    .lt("created_at", cutoff)
-    .not("storage_path", "is", null)
-    .or(`error_message.is.null,error_message.neq.${retentionMessage}`)
-    .limit(100);
-
-  if (listError) throw listError;
-  if (!expiredReports?.length) return 0;
-
-  let removed = 0;
-  for (const report of expiredReports) {
-    const storagePath = String(report.storage_path || "").trim();
-    if (!storagePath) continue;
-
-    const { error: removeError } = await serviceClient.storage
-      .from("end-shift-reports")
-      .remove([storagePath]);
-    if (removeError) {
-      console.error(`Retention cleanup failed for ${storagePath}:`, removeError.message);
-      continue;
-    }
-
-    const { error: updateError } = await serviceClient
-      .from("end_shift_reports")
-      .update({
-        error_message: retentionMessage
-      })
-      .eq("id", report.id);
-    if (updateError) {
-      console.error(`Retention metadata update failed for ${storagePath}:`, updateError.message);
-    }
-    removed += 1;
-  }
-
-  return removed;
-}
-
 function safe(value: unknown, fallback = "Not provided"): string {
   const text = String(value ?? "").trim();
   return text || fallback;
@@ -79,6 +34,7 @@ function safe(value: unknown, fallback = "Not provided"): string {
 function equipmentName(type?: string): string {
   return ({
     "53": "53’ Trailer",
+    container: "Container",
     doubles: "Doubles",
     pup: "Single Pup",
     bobtail: "Bobtail"
@@ -96,7 +52,7 @@ function photoLabels(type?: string): string[] {
     "Trailer 2 landing gear raised"
   ];
 
-  if (type === "53" || type === "pup") return [
+  if (type === "53" || type === "container" || type === "pup") return [
     "Fifth wheel plate connected",
     "Landing gear raised",
     "Air, brake, and electrical lines connected"
@@ -448,6 +404,7 @@ async function makePdf(
     row("Truck", entry.truck);
 
     if (entry.trailer1) row("Trailer 1", entry.trailer1);
+    if (entry.chassis) row("Chassis ID", entry.chassis);
     if (entry.dolly) row("Dolly", entry.dolly);
     if (entry.trailer2) row("Trailer 2", entry.trailer2);
 
@@ -696,6 +653,14 @@ Deno.serve(async (req) => {
       .eq("receive_end_of_shift", true)
       .is("deleted_at", null);
     if (recipientError) throw recipientError;
+    const { data: superAdminRows, error: superAdminError } = await serviceClient
+      .from("employee_profiles")
+      .select("email")
+      .eq("company_id", profile.company_id)
+      .eq("role", "super_admin")
+      .eq("status", "active")
+      .is("deleted_at", null);
+    if (superAdminError) throw superAdminError;
 
     const inspectionIds = entries
       .map((entry) => entry.id)
@@ -760,6 +725,7 @@ Deno.serve(async (req) => {
     const recipients = [...new Set(
       [
         ...(recipientRows || []).map((recipient) => String(recipient.email || "").trim().toLowerCase()),
+        ...(superAdminRows || []).map((admin) => String(admin.email || "").trim().toLowerCase()),
         driverEmail
       ].filter((email) =>
         /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -847,16 +813,6 @@ Deno.serve(async (req) => {
     }, { onConflict: "report_id" });
     if (reportError) throw reportError;
 
-    let retentionRemoved = 0;
-    try {
-      retentionRemoved = await cleanupExpiredSupabasePdfs(serviceClient);
-    } catch (error) {
-      console.error(
-        "Supabase PDF retention cleanup failed:",
-        error instanceof Error ? error.message : String(error)
-      );
-    }
-
     return new Response(
       JSON.stringify({
         ok: true,
@@ -867,8 +823,7 @@ Deno.serve(async (req) => {
         email_id: resendResult?.id || null,
         filename,
         drive_archived: Boolean(driveFile),
-        drive_warning: driveError,
-        retention_removed: retentionRemoved
+        drive_warning: driveError
       }),
       {
         status: 200,

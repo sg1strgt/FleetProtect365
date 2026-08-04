@@ -7,7 +7,7 @@
   }[char]));
   const dateTime = (value) => value ? new Date(value).toLocaleString() : 'Not available';
   const equipment = (value) => ({
-    '53_trailer': '53’ Trailer', single_pup: 'Single Pup', doubles: 'Doubles', bobtail: 'Bobtail'
+    '53_trailer': '53’ Trailer', container: 'Container', single_pup: 'Single Pup', doubles: 'Doubles', bobtail: 'Bobtail'
   }[value] || value || 'Not entered');
   const dialog = document.createElement('dialog');
   dialog.id = 'inspectionViewerDialog';
@@ -47,6 +47,7 @@
         <div><small>Equipment</small><strong>${esc(equipment(inspection.equipment_type))}</strong></div>
         <div><small>Truck</small><strong>${esc(inspection.truck_number)}</strong></div>
         <div><small>Trailer 1</small><strong>${esc(inspection.trailer_1_number)}</strong></div>
+        ${inspection.equipment_type === 'container' ? `<div><small>Chassis ID</small><strong>${esc(inspection.chassis_id)}</strong></div>` : ''}
         <div><small>Dolly</small><strong>${esc(inspection.dolly_number)}</strong></div>
         <div><small>Trailer 2</small><strong>${esc(inspection.trailer_2_number)}</strong></div>
         <div><small>Route</small><strong>${esc(inspection.location_from)} → ${esc(inspection.location_to)}</strong></div>

@@ -26,6 +26,14 @@
         "Air, brake, and electrical lines connected"
       ]
     },
+    container: {
+      label: "Container",
+      photos: [
+        "Fifth wheel plate connected",
+        "Landing gear raised",
+        "Air, brake, and electrical lines connected"
+      ]
+    },
     doubles: {
       label: "Doubles",
       photos: [
@@ -208,7 +216,7 @@
   const CENTRAL_SYNC_START = Date.parse("2026-07-25T00:00:00Z");
 
   function inspectionEquipmentType(type) {
-    return ({ "53": "53_trailer", pup: "single_pup", doubles: "doubles", bobtail: "bobtail" })[type] || "bobtail";
+    return ({ "53": "53_trailer", container: "container", pup: "single_pup", doubles: "doubles", bobtail: "bobtail" })[type] || "bobtail";
   }
 
   function inspectionPhotoRecords(entry) {
@@ -326,6 +334,7 @@
           status: entry.bypass ? "flagged" : "verified",
           truck_number: entry.truck || "NA",
           trailer_1_number: entry.trailer1 || "NA",
+          chassis_id: entry.chassis || "NA",
           dolly_number: entry.dolly || "NA",
           trailer_2_number: entry.trailer2 || "NA",
           location_from: entry.from || "NA",
@@ -661,6 +670,7 @@
           created_at: new Date().toISOString(),
           truck: "",
           trailer1: "",
+          chassis: "",
           trailer2: "",
           dolly: "",
           from: "",
@@ -706,7 +716,9 @@
           ${activeTrucks.map(t => `<option value="${t}" ${c.truck === t ? "selected" : ""}>${t}</option>`).join("")}
           <option value="NA" ${c.truck === "NA" ? "selected" : ""}>NA</option>
         </select>
-        ${c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
+        ${c.type === "container"
+          ? textField("Trailer ID","trailer1",c.trailer1) + textField("Chassis ID","chassis",c.chassis)
+          : c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
         ${c.type === "doubles" ? numericField("Dolly number","dolly",c.dolly) + numericField("Trailer 2 number","trailer2",c.trailer2) : ""}
         ${textField("Location From","from",c.from)}
         ${textField("Location To","to",c.to)}
@@ -862,7 +874,7 @@
   }
 
   function syncCurrent() {
-    const ids = ["truck","trailer1","trailer2","dolly","from","to","notes"];
+    const ids = ["truck","trailer1","chassis","trailer2","dolly","from","to","notes"];
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (el) state.current[id] = el.value.trim();
@@ -875,6 +887,7 @@
     const missing = [];
     ["truck","from","to","notes"].forEach(k => { if (!c[k]) missing.push(labelFor(k)); });
     if (c.type !== "bobtail" && !c.trailer1) missing.push("Trailer 1 number");
+    if (c.type === "container" && !c.chassis) missing.push("Chassis ID");
     if (c.type === "doubles") {
       if (!c.dolly) missing.push("Dolly number");
       if (!c.trailer2) missing.push("Trailer 2 number");
@@ -976,6 +989,7 @@
           ${detail("Employer ID", e.employee_id)}
           ${detail("Truck", e.truck)}
           ${e.trailer1 ? detail("Trailer 1", e.trailer1) : ""}
+          ${e.chassis ? detail("Chassis ID", e.chassis) : ""}
           ${e.dolly ? detail("Dolly", e.dolly) : ""}
           ${e.trailer2 ? detail("Trailer 2", e.trailer2) : ""}
           ${detail("Location From", e.from)}
