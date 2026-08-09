@@ -1,0 +1,5 @@
+.map-wrap{position:relative}
+.map-wrap #map{display:block}
+#deviceLocationBtn{position:absolute;right:16px;bottom:16px;width:48px;height:48px;padding:0;border-radius:10px;background:#fff;color:#314158;font-size:23px;transform:rotate(-45deg);box-shadow:0 3px 12px #18233b44}
+#deviceLocationBtn:disabled{opacity:.65}
+#locationStatus{position:absolute;right:16px;bottom:72px;max-width:250px;background:#10182de8;color:#fff;padding:8px 11px;border-radius:8px;font-size:13px}
