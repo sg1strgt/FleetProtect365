@@ -238,10 +238,21 @@
   }
 
   function showResourceMenu() {
-    const links = (state.companyContent || []).filter(item => item.content_type === "fmcsa" && item.url);
-    showModal("FMCSA Resources", links.length
-      ? `<div class="resource-list">${links.map(item => `<a class="resource-link" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(item.title)}</strong>${item.body ? `<span>${esc(item.body)}</span>` : ""}</a>`).join("")}</div>`
-      : "<p>No FMCSA links have been added by your administrator yet.</p>");
+    const fedexMarker = "[[FEDEX_LOCATION]]";
+    const resourceSection = (title, type, emptyMessage) => {
+      const links = (state.companyContent || []).filter(item => {
+        if (item.content_type !== "fmcsa" || !item.url) return false;
+        const isFedexLocation = String(item.body || "").startsWith(fedexMarker);
+        return type === "fedex_location" ? isFedexLocation : !isFedexLocation;
+      });
+      return `<details class="resource-section"><summary>${esc(title)}</summary>${links.length
+        ? `<div class="resource-list">${links.map(item => { const description = String(item.body || "").replace(fedexMarker, "").trim(); return `<a class="resource-link" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(item.title)}</strong>${description ? `<span>${esc(description)}</span>` : ""}</a>`; }).join("")}</div>`
+        : `<p class="resource-empty">${esc(emptyMessage)}</p>`}</details>`;
+    };
+    showModal("Resources",
+      resourceSection("FMCSA Resources", "fmcsa", "No FMCSA links have been added by your administrator yet.") +
+      resourceSection("FedEx Locations", "fedex_location", "FedEx locations will be added here soon.")
+    );
   }
 
   const CENTRAL_SYNC_START = Date.parse("2026-07-25T00:00:00Z");

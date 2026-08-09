@@ -4,6 +4,7 @@
   if (!s) return;
   const $ = id => document.getElementById(id);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+  const FEDEX_LOCATION_MARKER = '[[FEDEX_LOCATION]]';
   let profile, company, legalFolderIdValue = '', questionType = 'question_pre', auditRows = [], flaggedInspectionRows = [], expirationAlerts = [];
 
   async function context() {
@@ -344,9 +345,9 @@
   function openContent(type, item) {
     ensureContentDialog();
     $('contentForm').reset(); $('contentId').value = item?.id || ''; $('contentType').value = type;
-    $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = item?.body || ''; $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
+    $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = String(item?.body || '').replace(FEDEX_LOCATION_MARKER, '').trim(); $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
     $('contentUrlLabel').classList.toggle('hidden', type.startsWith('question_')); $('contentUrl').classList.toggle('hidden', type.startsWith('question_'));
-    const canPermanentlyDelete = profile?.role === 'super_admin' && ['document','fmcsa'].includes(type);
+    const canPermanentlyDelete = profile?.role === 'super_admin' && ['document','fmcsa','fedex_location'].includes(type);
     $('deleteContent').textContent = canPermanentlyDelete ? 'Delete Permanently' : 'Make Inactive';
     $('deleteContent').classList.toggle('hidden', !item || (!canPermanentlyDelete && !item.active));
     $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
@@ -355,14 +356,15 @@
     e.preventDefault();
     try {
       const {profile:p, company:co} = await context(), id=$('contentId').value, type=$('contentType').value;
-      const record={company_id:co.id,content_type:type,title:$('contentTitle').value.trim(),url:$('contentUrl').value.trim()||null,body:$('contentBody').value.trim()||null,sort_order:Number($('contentOrder').value)||0,active:$('contentActive').checked,updated_by:p.id,updated_at:new Date().toISOString()};
+      const description=$('contentBody').value.trim();
+      const record={company_id:co.id,content_type:type==='fedex_location'?'fmcsa':type,title:$('contentTitle').value.trim(),url:$('contentUrl').value.trim()||null,body:type==='fedex_location'?`${FEDEX_LOCATION_MARKER}${description?`\n${description}`:''}`:description||null,sort_order:Number($('contentOrder').value)||0,active:$('contentActive').checked,updated_by:p.id,updated_at:new Date().toISOString()};
       const query=id?s.from('company_content').update(record).eq('id',id):s.from('company_content').insert({...record,created_by:p.id}); const {error}=await query; if(error)throw error;
       $('contentDialog').close(); await loadContent(type === 'document' ? 'documents' : type);
     } catch(error){$('contentMsg').textContent=error.message;}
   }
   async function deleteContent() {
     const {profile:p}=await context(),id=$('contentId').value,type=$('contentType').value;
-    const permanent = p.role === 'super_admin' && ['document','fmcsa'].includes(type);
+    const permanent = p.role === 'super_admin' && ['document','fmcsa','fedex_location'].includes(type);
     if (!confirm(permanent ? `Permanently delete this ${type === 'fmcsa' ? 'FMCSA link' : 'document'}? This cannot be undone.` : 'Make this item inactive?')) return;
     const query = permanent
       ? s.from('company_content').delete().eq('id',id)
@@ -390,11 +392,12 @@
     try {
       const {profile:p,company:co}=await context();
       if(type==='legal'&&p.role==='super_admin'&&!legalFolderIdValue){const {data:privateData,error:privateError}=await s.from('company_private_settings').select('legal_drive_folder_id').eq('company_id',co.id).maybeSingle();if(privateError)throw privateError;legalFolderIdValue=privateData?.legal_drive_folder_id||'';}
-      updateFolderLinks(); const types=type==='questions'?[questionType]:[type === 'documents' ? 'document' : type];
+      updateFolderLinks(); const types=type==='questions'?[questionType]:[type === 'documents' ? 'document' : type === 'fedex_location' ? 'fmcsa' : type];
       const {data,error}=await s.from('company_content').select('*').eq('company_id',co.id).in('content_type',types).order('sort_order').order('title'); if(error)throw error;
       const target=$(targetFor(type==='questions'?questionType:type)); if(!target)return;
-      target.innerHTML=(data||[]).map(item=>`<article class="content-item${item.active?'':' content-item-inactive'}"><div><h3>${esc(item.title)}</h3>${item.body?`<p>${esc(item.body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><div class="content-item-actions"><button data-edit-content="${esc(item.id)}">Edit</button>${p.role==='super_admin'&&item.content_type==='fmcsa'?`<button class="danger" data-delete-fmcsa="${esc(item.id)}">Delete</button>`:''}</div></article>`).join('')||'<p class="empty-content">No items have been added.</p>';
-      target.querySelectorAll('[data-edit-content]').forEach(btn=>btn.onclick=()=>openContent((data||[]).find(x=>x.id===btn.dataset.editContent).content_type,(data||[]).find(x=>x.id===btn.dataset.editContent)));
+      const items=(data||[]).filter(item=>type==='fedex_location'?String(item.body||'').startsWith(FEDEX_LOCATION_MARKER):type==='fmcsa'?!String(item.body||'').startsWith(FEDEX_LOCATION_MARKER):true);
+      target.innerHTML=items.map(item=>{const body=String(item.body||'').replace(FEDEX_LOCATION_MARKER,'').trim();return `<article class="content-item${item.active?'':' content-item-inactive'}"><div><h3>${esc(item.title)}</h3>${body?`<p>${esc(body)}</p>`:''}${item.url?`<a href="${esc(item.url)}" target="_blank" rel="noopener">Open link</a>`:''}<small>${item.active?'Active':'Inactive'} · Order ${item.sort_order}</small></div><div class="content-item-actions"><button data-edit-content="${esc(item.id)}">Edit</button>${p.role==='super_admin'&&item.content_type==='fmcsa'?`<button class="danger" data-delete-fmcsa="${esc(item.id)}">Delete</button>`:''}</div></article>`;}).join('')||'<p class="empty-content">No items have been added.</p>';
+      target.querySelectorAll('[data-edit-content]').forEach(btn=>btn.onclick=()=>openContent(type==='fedex_location'?'fedex_location':items.find(x=>x.id===btn.dataset.editContent).content_type,items.find(x=>x.id===btn.dataset.editContent)));
       target.querySelectorAll('[data-delete-fmcsa]').forEach(btn=>btn.onclick=()=>deleteFmcsaLink(btn.dataset.deleteFmcsa));
     } catch(error){const target=$(targetFor(type==='questions'?questionType:type));if(target)target.innerHTML=`<p>${esc(error.message)}</p>`;}
   }
@@ -442,7 +445,7 @@
   function wireNavigation() {
     document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => {
       const view=button.dataset.view;
-      if (!['questions','fmcsa','documents','legal'].includes(view)) { if(view==='settings')setTimeout(loadSettings); if(view==='dashboard')setTimeout(loadDashboardStats); if(view==='audit')setTimeout(()=>loadAuditRows().catch(console.error)); return; }
+      if (!['questions','fmcsa','fedex_location','documents','legal'].includes(view)) { if(view==='settings')setTimeout(loadSettings); if(view==='dashboard')setTimeout(loadDashboardStats); if(view==='audit')setTimeout(()=>loadAuditRows().catch(console.error)); return; }
       document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden')); $(view).classList.remove('hidden'); document.querySelectorAll('nav [data-view]').forEach(x=>x.classList.toggle('active',x===button)); $('title').textContent=button.textContent.trim(); loadContent(view);
     }));
     document.querySelectorAll('.add-content').forEach(btn=>btn.onclick=()=>openContent(btn.dataset.contentType));
