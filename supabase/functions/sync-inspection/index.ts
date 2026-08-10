@@ -80,12 +80,17 @@ Deno.serve(async req => {
       ...Object.entries(entry.photos || {}).flatMap(([key, photo]: [string, any]) => photo?.data_url ? [{ key: `required-${key}`, label: labels[entry.type]?.[Number(key)] || `Required photo ${Number(key) + 1}`, required: true, order: Number(key), photo }] : []),
       ...(entry.extra_photos || []).flatMap((photo: any, index: number) => photo?.data_url ? [{ key: `extra-${index}`, label: photo.name || `Additional photo ${index + 1}`, required: false, order: (labels[entry.type]?.length || 0) + index, photo }] : [])
     ];
+    const { data: existingPhotos, error: existingPhotosError } = await client.from("inspection_photos")
+      .select("photo_key").eq("inspection_id", entry.id).is("deleted_at", null);
+    if (existingPhotosError) throw existingPhotosError;
+    const existingPhotoKeys = new Set((existingPhotos || []).map((photo) => photo.photo_key));
     for (const item of photos) {
+      if (existingPhotoKeys.has(item.key)) continue;
       const decoded = decodeDataUrl(item.photo.data_url);
       const path = `${profile.company_id}/${authData.user.id}/${entry.id}/${item.key}.jpg`;
       const { error: uploadError } = await client.storage.from("inspection-photos").upload(path, decoded.bytes, { contentType: decoded.mimeType, upsert: true });
       if (uploadError) throw uploadError;
-      const { error: photoError } = await client.from("inspection_photos").upsert({
+      const { error: photoError } = await client.from("inspection_photos").insert({
         company_id: profile.company_id,
         inspection_id: entry.id,
         driver_id: authData.user.id,
@@ -104,12 +109,13 @@ Deno.serve(async req => {
         created_by: authData.user.id,
         updated_by: authData.user.id,
         deleted_at: null
-      }, { onConflict: "inspection_id,photo_key" });
-      if (photoError) throw photoError;
+      });
+      if (photoError && photoError.code !== "23505") throw photoError;
     }
     return json({ ok: true, inspection_id: entry.id, photo_count: photos.length });
   } catch (error) {
     console.error("sync-inspection error:", error);
-    return json({ error: error instanceof Error ? error.message : String(error) }, 500);
+    const detail = error && typeof error === "object" ? JSON.stringify(error) : String(error);
+    return json({ ok: false, error: error instanceof Error ? error.message : detail }, 200);
   }
 });
