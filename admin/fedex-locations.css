@@ -1,0 +1,22 @@
+#fedex_location .fedex-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+#fedex_location .fedex-toolbar input{width:min(420px,100%)}
+#fedex_location .fedex-empty{padding:28px;text-align:center;color:#728097}
+.fedex-location-dialog{width:min(1080px,96vw);max-height:94vh}
+.fedex-location-dialog form,.fedex-location-view{padding:24px;overflow:auto;max-height:94vh}
+.fedex-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.fedex-dialog-head h2{margin:0}.fedex-dialog-head button{font-size:24px;border:0;background:transparent}
+.fedex-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:#eef1f6;padding:5px;border-radius:12px;margin:20px 0}
+.fedex-tabs button{border:0;background:transparent}.fedex-tabs button.active{background:#fff;box-shadow:0 1px 5px #cbd3e0}
+.fedex-tab{display:none}.fedex-tab.active{display:block}
+.fedex-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 22px}.fedex-grid .wide{grid-column:1/-1}
+.fedex-route{border-top:1px solid #dfe5ef;padding-top:18px;margin-top:20px}.fedex-route h3{color:#65728a}
+.fedex-figure-grid{display:grid;grid-template-columns:repeat(auto-fill,150px);gap:12px}
+.fedex-figure{position:relative}.fedex-figure img{width:150px;height:150px;object-fit:cover;border:1px solid #dfe5ef;border-radius:12px;cursor:pointer}
+.fedex-figure button{position:absolute;right:5px;top:5px;padding:4px 8px}
+.fedex-link-row{display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin:10px 0}
+.fedex-form-actions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #dfe5ef;margin-top:22px;padding-top:18px}
+.fedex-view-map{width:100%;height:340px;border:0;border-radius:14px}.fedex-view-summary{display:flex;justify-content:space-between;gap:20px;margin:20px 0}
+.fedex-view-routes details{border:1px solid #dfe5ef;border-radius:12px;margin:10px 0;padding:14px}.fedex-view-routes summary{display:flex;justify-content:space-between;font-weight:700;cursor:pointer}
+.fedex-view-details{display:grid;grid-template-columns:1fr 1fr;gap:26px}.fedex-view-details p{white-space:pre-wrap}
+.fedex-photo-viewer{width:auto;background:#05070b}.fedex-photo-viewer div{padding:42px 16px 16px;position:relative}.fedex-photo-viewer img{max-width:88vw;max-height:82vh;display:block}.fedex-photo-viewer button{position:absolute;right:8px;top:7px}
+@media(max-width:760px){.fedex-grid,.fedex-view-details{grid-template-columns:1fr}.fedex-grid .wide{grid-column:auto}.fedex-tabs{grid-template-columns:1fr 1fr}.fedex-link-row{grid-template-columns:1fr}.fedex-view-summary{display:block}}
