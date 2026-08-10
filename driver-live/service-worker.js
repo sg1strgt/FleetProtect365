@@ -1,10 +1,12 @@
-const CACHE_NAME = "fp365-driver-v1.9.12-inspection-sync-2";
+const CACHE_NAME = "fp365-driver-v1.9.13-fedex-live-1";
 
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
+  "./fedex-locations.css",
   "./app.js",
+  "./fedex-locations.js",
   "./config.js",
   "./manifest.webmanifest"
 ];

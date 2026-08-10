@@ -11,6 +11,7 @@
   const supabaseClient = hasSupabaseConfig
     ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
     : null;
+  window.FP365_DRIVER_CLIENT = supabaseClient;
 
   let activeTrucks = [];
   const DRIVER_NAMES = {
@@ -251,7 +252,7 @@
     };
     showModal("Resources",
       resourceSection("FMCSA Resources", "fmcsa", "No FMCSA links have been added by your administrator yet.") +
-      resourceSection("FedEx Locations", "fedex_location", "FedEx locations will be added here soon.")
+      '<details class="resource-section"><summary>FedEx Locations</summary><div class="resource-list"><button type="button" class="resource-link fedex-resource-launch" data-open-fedex-locations><strong>Open FedEx Locations</strong><span>Maps, directions, contact information, routes, photos, and links.</span></button></div></details>'
     );
   }
 
