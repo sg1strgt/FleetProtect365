@@ -124,10 +124,10 @@
     const list = $('expirationNearList');
     if (!list) return;
     if (!expirationAlerts.length) {
-      list.innerHTML = '<p class="expiration-alert-empty">No employee or truck expiration dates are due within the next 30 days.</p>';
+      list.innerHTML = '<p class="expiration-alert-empty">No employee credentials or truck records expire within the next 30 days.</p>';
       return;
     }
-    list.innerHTML = expirationAlerts.map(alert => `<button type="button" class="expiration-alert-row" data-expiration-type="${alert.recordType}" data-expiration-id="${esc(alert.id)}"><span class="expiration-alert-kind">${alert.recordType === 'employee' ? 'Employee Alert' : 'Truck Alert'}</span><strong>${esc(alert.name)}</strong><span>${esc(alert.item)} · ${esc(formatExpirationDate(alert.value))}</span><em>${alert.days === 0 ? 'Due today' : `${alert.days} day${alert.days === 1 ? '' : 's'} remaining`}</em></button>`).join('');
+    list.innerHTML = expirationAlerts.map(alert => `<button type="button" class="expiration-alert-row" data-expiration-type="${alert.recordType}" data-expiration-id="${esc(alert.id)}"><span class="expiration-alert-kind">${alert.recordType === 'employee' ? 'Employee Credential' : 'Truck Record'}</span><strong>${esc(alert.name)}</strong><span>${esc(alert.item)} · ${esc(formatExpirationDate(alert.value))}</span><em>${alert.days === 0 ? 'Due today' : `${alert.days} day${alert.days === 1 ? '' : 's'} remaining`}</em></button>`).join('');
   }
 
   function openExpirationAlerts() {
@@ -162,11 +162,12 @@
       $('truckCount').textContent = (trucks.data || []).filter(x => x.status === 'active').length;
       expirationAlerts = buildExpirationAlerts(employees.data || [], trucks.data || []);
       $('expirationNearCount').textContent = expirationAlerts.length;
-      const employeeAlertCount = expirationAlerts.filter(x => x.recordType === 'employee').length;
-      const truckAlertCount = expirationAlerts.filter(x => x.recordType === 'truck').length;
+      const employeeCount = expirationAlerts.filter(x => x.recordType === 'employee').length;
+      const truckCount = expirationAlerts.filter(x => x.recordType === 'truck').length;
+      const nextDays = expirationAlerts[0]?.days;
       $('expirationNearSummary').textContent = expirationAlerts.length
-        ? `${employeeAlertCount} employee · ${truckAlertCount} truck`
-        : 'none due within 30 days';
+        ? `${employeeCount} employee · ${truckCount} truck · ${nextDays === 0 ? 'due today' : `next in ${nextDays} day${nextDays === 1 ? '' : 's'}`}`
+        : 'none due in 30 days';
       $('expirationNearCard').classList.toggle('has-alerts', expirationAlerts.length > 0);
       if ($('driverAppRefresh')) $('driverAppRefresh').textContent = `${Number(co.driver_entry_retention_hours) || 24} hr`;
       $('totalInspectionCount').textContent = inspections.count || 0;
@@ -347,7 +348,7 @@
     $('contentForm').reset(); $('contentId').value = item?.id || ''; $('contentType').value = type;
     $('contentTitle').value = item?.title || ''; $('contentUrl').value = item?.url || ''; $('contentBody').value = String(item?.body || '').replace(FEDEX_LOCATION_MARKER, '').trim(); $('contentOrder').value = item?.sort_order || 0; $('contentActive').checked = item?.active ?? true;
     $('contentUrlLabel').classList.toggle('hidden', type.startsWith('question_')); $('contentUrl').classList.toggle('hidden', type.startsWith('question_'));
-    const canPermanentlyDelete = profile?.role === 'super_admin' && ['document','fmcsa','fedex_location'].includes(type);
+    const canPermanentlyDelete = profile?.role === 'super_admin' && (type.startsWith('question_') || ['document','fmcsa','fedex_location'].includes(type));
     $('deleteContent').textContent = canPermanentlyDelete ? 'Delete Permanently' : 'Make Inactive';
     $('deleteContent').classList.toggle('hidden', !item || (!canPermanentlyDelete && !item.active));
     $('contentDialogTitle').textContent = item ? 'Edit Item' : 'Add Item'; $('contentMsg').textContent=''; $('contentDialog').showModal();
@@ -364,8 +365,9 @@
   }
   async function deleteContent() {
     const {profile:p}=await context(),id=$('contentId').value,type=$('contentType').value;
-    const permanent = p.role === 'super_admin' && ['document','fmcsa','fedex_location'].includes(type);
-    if (!confirm(permanent ? `Permanently delete this ${type === 'fmcsa' ? 'FMCSA link' : 'document'}? This cannot be undone.` : 'Make this item inactive?')) return;
+    const permanent = p.role === 'super_admin' && (type.startsWith('question_') || ['document','fmcsa','fedex_location'].includes(type));
+    const itemName = type.startsWith('question_') ? 'question' : type === 'fmcsa' ? 'FMCSA link' : type === 'fedex_location' ? 'FedEx location link' : 'document';
+    if (!confirm(permanent ? `Permanently delete this ${itemName}? This cannot be undone.` : 'Make this item inactive?')) return;
     const query = permanent
       ? s.from('company_content').delete().eq('id',id)
       : s.from('company_content').update({active:false,updated_by:p.id,updated_at:new Date().toISOString()}).eq('id',id);
