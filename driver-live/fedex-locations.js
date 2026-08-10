@@ -80,14 +80,17 @@
     const body = byId("fedexDriverBody");
     body.innerHTML = `
       <section class="fedex-driver-search">
-        <label for="fedexDriverSelect">Select a location</label>
-        <select id="fedexDriverSelect"><option value="">Choose a location</option>${locations.map(row => `<option value="${esc(row.id)}">${esc(row.code)} — ${esc(row.name)}</option>`).join("")}</select>
+        <label>Select a location</label>
+        <details id="fedexDriverPicker" class="fedex-location-picker">
+          <summary id="fedexDriverPickerLabel">Choose a location</summary>
+          <div class="fedex-location-options" role="listbox">${locations.map(row => `<button type="button" role="option" data-fedex-location="${esc(row.id)}"><strong>${esc(row.code)}</strong><span>${esc(row.name)}</span></button>`).join("")}</div>
+        </details>
         <label for="fedexDriverCode">Enter location code</label>
         <div class="fedex-code-entry"><input id="fedexDriverCode" inputmode="numeric" maxlength="10" placeholder="Location code"><button id="fedexDriverFind" type="button" aria-label="Find location">→</button></div>
         <p id="fedexDriverSearchMsg" class="fedex-search-message">${locations.length} location${locations.length === 1 ? "" : "s"} available</p>
       </section>
       <section id="fedexDriverResult" class="fedex-driver-result"><div class="fedex-driver-empty">Choose a location or enter its code.</div></section>`;
-    byId("fedexDriverSelect").onchange = event => event.target.value && showLocation(event.target.value);
+    body.querySelectorAll("[data-fedex-location]").forEach(button => button.onclick = () => showLocation(button.dataset.fedexLocation));
     byId("fedexDriverFind").onclick = findCode;
     byId("fedexDriverCode").onkeydown = event => { if (event.key === "Enter") findCode(); };
     byId("fedexDriverCode").oninput = event => { event.target.value = event.target.value.replace(/\D/g, "").slice(0,10); };
@@ -100,7 +103,6 @@
       byId("fedexDriverSearchMsg").textContent = code ? `Location ${code} was not found.` : "Enter a location code.";
       return;
     }
-    byId("fedexDriverSelect").value = match.id;
     showLocation(match.id);
   }
 
@@ -109,6 +111,8 @@
   function showLocation(id) {
     selected = locations.find(row => row.id === id);
     if (!selected) return;
+    byId("fedexDriverPickerLabel").textContent = `${selected.code} — ${selected.name}`;
+    byId("fedexDriverPicker").open = false;
     zoom = 15;
     const routes = (selected.routes || []).filter(route => route.from && route.to);
     const hasMap = selected.latitude != null && selected.longitude != null;
