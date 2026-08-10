@@ -40,8 +40,43 @@ Deno.serve(async req => {
     if (authError || !authData.user) return json({ error: "Driver session is unavailable." }, 401);
     const { data: profile, error: profileError } = await client.from("employee_profiles").select("company_id").eq("id", authData.user.id).single();
     if (profileError || !profile) throw profileError || new Error("Driver profile was not found.");
-    const { entry } = await req.json();
+    const { entry, photo_item: photoItem } = await req.json();
     if (!entry?.id || !entry?.submitted_at) return json({ error: "A complete submitted inspection is required." }, 400);
+
+    if (photoItem) {
+      if (!photoItem.key || !photoItem.photo?.data_url) return json({ ok: false, error: "A complete inspection photo is required." });
+      const { data: existingPhoto, error: existingPhotoError } = await client.from("inspection_photos")
+        .select("photo_key").eq("inspection_id", entry.id).eq("photo_key", photoItem.key).is("deleted_at", null).maybeSingle();
+      if (existingPhotoError) throw existingPhotoError;
+      if (existingPhoto) return json({ ok: true, inspection_id: entry.id, photo_key: photoItem.key, already_saved: true });
+
+      const decoded = decodeDataUrl(photoItem.photo.data_url);
+      const path = `${profile.company_id}/${authData.user.id}/${entry.id}/${photoItem.key}.jpg`;
+      const { error: uploadError } = await client.storage.from("inspection-photos").upload(path, decoded.bytes, { contentType: decoded.mimeType, upsert: true });
+      if (uploadError) throw uploadError;
+      const { error: photoError } = await client.from("inspection_photos").insert({
+        company_id: profile.company_id,
+        inspection_id: entry.id,
+        driver_id: authData.user.id,
+        photo_key: photoItem.key,
+        photo_label: photoItem.label,
+        display_order: photoItem.order,
+        is_required: photoItem.required,
+        status: "uploaded",
+        source: "upload",
+        storage_path: path,
+        original_file_name: photoItem.photo.name || `${photoItem.key}.jpg`,
+        mime_type: decoded.mimeType,
+        file_size_bytes: decoded.bytes.length,
+        captured_at: entry.submitted_at,
+        gps_status: "not_captured",
+        created_by: authData.user.id,
+        updated_by: authData.user.id,
+        deleted_at: null
+      });
+      if (photoError && photoError.code !== "23505") throw photoError;
+      return json({ ok: true, inspection_id: entry.id, photo_key: photoItem.key });
+    }
 
     const equipmentType = ({ "53": "53_trailer", container: "container", pup: "single_pup", doubles: "doubles", bobtail: "bobtail" } as Record<string, string>)[entry.type] || "bobtail";
     const inspection = {
@@ -76,43 +111,7 @@ Deno.serve(async req => {
     const { error: inspectionError } = await client.from("inspections").upsert(inspection, { onConflict: "id" });
     if (inspectionError) throw inspectionError;
 
-    const photos = [
-      ...Object.entries(entry.photos || {}).flatMap(([key, photo]: [string, any]) => photo?.data_url ? [{ key: `required-${key}`, label: labels[entry.type]?.[Number(key)] || `Required photo ${Number(key) + 1}`, required: true, order: Number(key), photo }] : []),
-      ...(entry.extra_photos || []).flatMap((photo: any, index: number) => photo?.data_url ? [{ key: `extra-${index}`, label: photo.name || `Additional photo ${index + 1}`, required: false, order: (labels[entry.type]?.length || 0) + index, photo }] : [])
-    ];
-    const { data: existingPhotos, error: existingPhotosError } = await client.from("inspection_photos")
-      .select("photo_key").eq("inspection_id", entry.id).is("deleted_at", null);
-    if (existingPhotosError) throw existingPhotosError;
-    const existingPhotoKeys = new Set((existingPhotos || []).map((photo) => photo.photo_key));
-    for (const item of photos) {
-      if (existingPhotoKeys.has(item.key)) continue;
-      const decoded = decodeDataUrl(item.photo.data_url);
-      const path = `${profile.company_id}/${authData.user.id}/${entry.id}/${item.key}.jpg`;
-      const { error: uploadError } = await client.storage.from("inspection-photos").upload(path, decoded.bytes, { contentType: decoded.mimeType, upsert: true });
-      if (uploadError) throw uploadError;
-      const { error: photoError } = await client.from("inspection_photos").insert({
-        company_id: profile.company_id,
-        inspection_id: entry.id,
-        driver_id: authData.user.id,
-        photo_key: item.key,
-        photo_label: item.label,
-        display_order: item.order,
-        is_required: item.required,
-        status: "uploaded",
-        source: "upload",
-        storage_path: path,
-        original_file_name: item.photo.name || `${item.key}.jpg`,
-        mime_type: decoded.mimeType,
-        file_size_bytes: decoded.bytes.length,
-        captured_at: entry.submitted_at,
-        gps_status: "not_captured",
-        created_by: authData.user.id,
-        updated_by: authData.user.id,
-        deleted_at: null
-      });
-      if (photoError && photoError.code !== "23505") throw photoError;
-    }
-    return json({ ok: true, inspection_id: entry.id, photo_count: photos.length });
+    return json({ ok: true, inspection_id: entry.id, photo_count: 0 });
   } catch (error) {
     console.error("sync-inspection error:", error);
     const detail = error && typeof error === "object" ? JSON.stringify(error) : String(error);

@@ -350,11 +350,23 @@
     if (!Number.isFinite(submittedTime) || submittedTime < CENTRAL_SYNC_START) return false;
     if (entry.synced_to_supabase && entry.photos_synced_to_supabase) return false;
 
+    const metadataEntry = { ...entry, photos: {}, extra_photos: [] };
     const { data, error } = await supabaseClient.functions.invoke("sync-inspection", {
-      body: { entry }
+      body: { entry: metadataEntry }
     });
     if (error) throw error;
     if (!data?.ok) throw new Error(data?.error || "The inspection could not be synchronized.");
+
+    for (const item of inspectionPhotoRecords(entry)) {
+      const { data: photoData, error: photoError } = await supabaseClient.functions.invoke("sync-inspection", {
+        body: {
+          entry: { id: entry.id, submitted_at: entry.submitted_at },
+          photo_item: item
+        }
+      });
+      if (photoError) throw photoError;
+      if (!photoData?.ok) throw new Error(photoData?.error || `The photo ${item.label} could not be synchronized.`);
+    }
 
     entry.inspection_number = data.inspection_number || entry.inspection_number;
     entry.synced_to_supabase = true;
