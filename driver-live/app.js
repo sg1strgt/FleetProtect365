@@ -348,77 +348,33 @@
     if (!supabaseClient) return false;
     const submittedTime = Date.parse(entry.submitted_at || "");
     if (!Number.isFinite(submittedTime) || submittedTime < CENTRAL_SYNC_START) return false;
+    if (entry.synced_to_supabase && entry.photos_synced_to_supabase) return false;
 
-    const { data: authData, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !authData?.user) throw authError || new Error("Driver session is unavailable.");
-    const userId = authData.user.id;
-    let companyId = state.user?.company_id;
-    if (!companyId) {
-      const { data: profile, error: profileError } = await supabaseClient
-        .from("employee_profiles").select("company_id").eq("id", userId).single();
-      if (profileError) throw profileError;
-      companyId = profile.company_id;
-    }
+    const { data, error } = await supabaseClient.functions.invoke("sync-inspection", {
+      body: { entry }
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error(data?.error || "The inspection could not be synchronized.");
 
-    let changed = false;
-    if (!entry.synced_to_supabase) {
-      const { data: existing, error: existingError } = await supabaseClient
-        .from("inspections").select("id,inspection_number").eq("id", entry.id).maybeSingle();
-      if (existingError) throw existingError;
-      if (existing) {
-        entry.inspection_number = existing.inspection_number || entry.inspection_number;
-      } else {
-        const payload = {
-          id: entry.id,
-          company_id: companyId,
-          driver_id: userId,
-          equipment_type: inspectionEquipmentType(entry.type),
-          status: entry.bypass ? "flagged" : "verified",
-          truck_number: entry.truck || "NA",
-          trailer_1_number: entry.trailer1 || "NA",
-          chassis_id: entry.chassis || "NA",
-          dolly_number: entry.dolly || "NA",
-          trailer_2_number: entry.trailer2 || "NA",
-          location_from: entry.from || "NA",
-          location_to: entry.to || "NA",
-          notes: entry.notes || "NA",
-          started_at: entry.created_at || entry.submitted_at,
-          submitted_at: entry.submitted_at,
-          driver_certified: Boolean(entry.certified),
-          has_bypass: Boolean(entry.bypass),
-          gps_start_status: "not_captured",
-          gps_submit_status: "not_captured",
-          created_by: userId,
-          updated_by: userId,
-          template_snapshot: {
-            bypass_reason: entry.bypass_reason || null,
-            photo_count: Object.keys(entry.photos || {}).length,
-            extra_photo_count: (entry.extra_photos || []).length,
-            source: "driver-live"
-          }
-        };
-        const { data, error } = await supabaseClient
-          .from("inspections").insert(payload).select("inspection_number").single();
-        if (error) throw error;
-        entry.inspection_number = data?.inspection_number || entry.inspection_number;
-      }
-      entry.synced_to_supabase = true;
-      changed = true;
-    }
-    if (await syncInspectionPhotos(entry, companyId, userId)) changed = true;
-    return changed;
+    entry.inspection_number = data.inspection_number || entry.inspection_number;
+    entry.synced_to_supabase = true;
+    entry.photos_synced_to_supabase = true;
+    return true;
   }
 
   async function syncPendingInspections() {
     let changed = false;
+    const failures = [];
     for (const entry of state.entries) {
       try {
         if (await syncInspection(entry)) changed = true;
       } catch (error) {
         console.warn("Inspection sync pending:", error);
+        failures.push({ entry, error });
       }
     }
     if (changed) await dbSet("entries", state.entries);
+    return failures;
   }
 
   function localEntryRetentionHours() {
@@ -1113,12 +1069,13 @@ function renderEndShift() {
       };
 
       try {
-        await syncPendingInspections();
+        const syncFailures = await syncPendingInspections();
         const unsynced = todayEntries.filter(entry =>
           !entry.synced_to_supabase || !entry.photos_synced_to_supabase
         );
         if (unsynced.length) {
-          throw new Error("The inspection or its photos are still uploading. Please keep the app open and try End of Shift again.");
+          const matchingFailure = syncFailures.find(({ entry }) => unsynced.some(item => item.id === entry.id));
+          throw new Error(matchingFailure?.error?.message || "The inspection or its photos are still uploading. Please keep the app open and try End of Shift again.");
         }
         const { data, error } = await supabaseClient.functions.invoke(
           cfg.END_SHIFT_FUNCTION || "send-end-shift",

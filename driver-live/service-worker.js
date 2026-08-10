@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.9.10-resource-groups-1";
+const CACHE_NAME = "fp365-driver-v1.9.11-inspection-sync-1";
 
 const APP_FILES = [
   "./",
