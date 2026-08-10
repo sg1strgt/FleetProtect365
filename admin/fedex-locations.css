@@ -1,6 +1,9 @@
 #fedex_location .fedex-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 #fedex_location .fedex-toolbar input{width:min(420px,100%)}
 #fedex_location .fedex-empty{padding:28px;text-align:center;color:#728097}
+#fedex_location .fedex-icon-actions{display:flex;align-items:center;gap:8px;white-space:nowrap}
+#fedex_location .fedex-icon-actions button{display:inline-grid;place-items:center;width:38px;height:38px;padding:0}
+#fedex_location .fedex-icon-actions svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .fedex-location-dialog{width:min(1080px,96vw);max-height:94vh}
 .fedex-location-dialog form,.fedex-location-view{padding:24px;overflow:auto;max-height:94vh}
 .fedex-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
