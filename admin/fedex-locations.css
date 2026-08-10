@@ -7,7 +7,7 @@
 .fedex-location-dialog{width:min(1080px,96vw);max-height:94vh}
 .fedex-location-dialog form,.fedex-location-view{padding:24px;overflow:auto;max-height:94vh}
 #fedexLocationDialog{width:98vw;height:96vh;max-width:none;max-height:96vh}
-#fedexLocationDialog form{height:100%;max-height:none;padding:28px 34px}
+#fedexLocationDialog form{width:100%;max-width:none;height:100%;max-height:none;padding:28px 34px}
 #fedexLocationDialog textarea{min-height:180px}
 .fedex-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .fedex-dialog-head h2{margin:0}.fedex-dialog-head button{font-size:24px;border:0;background:transparent}
