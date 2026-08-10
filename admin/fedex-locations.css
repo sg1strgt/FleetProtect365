@@ -6,6 +6,9 @@
 #fedex_location .fedex-icon-actions svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .fedex-location-dialog{width:min(1080px,96vw);max-height:94vh}
 .fedex-location-dialog form,.fedex-location-view{padding:24px;overflow:auto;max-height:94vh}
+#fedexLocationDialog{width:98vw;height:96vh;max-width:none;max-height:96vh}
+#fedexLocationDialog form{height:100%;max-height:none;padding:28px 34px}
+#fedexLocationDialog textarea{min-height:180px}
 .fedex-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .fedex-dialog-head h2{margin:0}.fedex-dialog-head button{font-size:24px;border:0;background:transparent}
 .fedex-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;background:#eef1f6;padding:5px;border-radius:12px;margin:20px 0}
@@ -18,7 +21,7 @@
 .fedex-figure button{position:absolute;right:5px;top:5px;padding:4px 8px}
 .fedex-link-row{display:grid;grid-template-columns:1fr 2fr auto;gap:10px;margin:10px 0}
 .fedex-form-actions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid #dfe5ef;margin-top:22px;padding-top:18px}
-.fedex-view-map{width:100%;height:340px;border:0;border-radius:14px}.fedex-view-summary{display:flex;justify-content:space-between;gap:20px;margin:20px 0}
+.fedex-map-wrap{position:relative;margin-top:18px}.fedex-view-map{display:block;width:100%;height:340px;border:0;border-radius:14px}.fedex-map-zoom{position:absolute;left:12px;top:12px;display:grid;overflow:hidden;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 2px 8px #0f172a26}.fedex-map-zoom button{width:40px;height:38px;padding:0;border:0;border-radius:0;background:#fff;font-size:24px;line-height:1}.fedex-map-zoom button+button{border-top:1px solid #cbd5e1}.fedex-map-locate{position:absolute;right:12px;bottom:12px;display:grid;place-items:center;width:42px;height:42px;padding:0;background:#fff;border:1px solid #cbd5e1;box-shadow:0 2px 8px #0f172a26}.fedex-map-locate svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}.fedex-map-status{position:absolute;right:62px;bottom:12px;max-width:320px;padding:8px 10px;border-radius:7px;background:#fff;color:#334155;font-size:13px;box-shadow:0 2px 8px #0f172a26}.fedex-map-status:empty{display:none}.fedex-view-summary{display:flex;justify-content:space-between;gap:20px;margin:20px 0}.fedex-view-address{display:block;font-size:24px;line-height:1.25}
 .fedex-view-routes details{border:1px solid #dfe5ef;border-radius:12px;margin:10px 0;padding:14px}.fedex-view-routes summary{display:flex;justify-content:space-between;font-weight:700;cursor:pointer}
 .fedex-view-details{display:grid;grid-template-columns:1fr 1fr;gap:26px}.fedex-view-details p{white-space:pre-wrap}
 .fedex-photo-viewer{width:auto;background:#05070b}.fedex-photo-viewer div{padding:42px 16px 16px;position:relative}.fedex-photo-viewer img{max-width:88vw;max-height:82vh;display:block}.fedex-photo-viewer button{position:absolute;right:8px;top:7px}
