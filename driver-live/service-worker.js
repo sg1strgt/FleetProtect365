@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.9.15-fedex-live-3";
+const CACHE_NAME = "fp365-driver-v1.9.16-rear-door-photos-1";
 
 const APP_FILES = [
   "./",

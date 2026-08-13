@@ -24,7 +24,8 @@
       photos: [
         "Fifth wheel plate connected",
         "Landing gear raised",
-        "Air, brake, and electrical lines connected"
+        "Air, brake, and electrical lines connected",
+        "Rear door and seal secure"
       ]
     },
     container: {
@@ -32,7 +33,8 @@
       photos: [
         "Fifth wheel plate connected",
         "Landing gear raised",
-        "Air, brake, and electrical lines connected"
+        "Air, brake, and electrical lines connected",
+        "Rear door and seal secure"
       ]
     },
     doubles: {
@@ -44,7 +46,9 @@
         "Safety chains connected",
         "Air, brake, and electrical lines connected",
         "Fifth wheel plate connected to Trailer 2",
-        "Trailer 2 landing gear raised"
+        "Trailer 2 landing gear raised",
+        "Trailer 1 rear door and seal secure",
+        "Trailer 2 rear door and seal secure"
       ]
     },
     pup: {
@@ -52,7 +56,8 @@
       photos: [
         "Fifth wheel plate connected",
         "Landing gear raised",
-        "Air, brake, and electrical lines connected"
+        "Air, brake, and electrical lines connected",
+        "Rear door and seal secure"
       ]
     },
     bobtail: { label: "Bobtail", photos: [] }
