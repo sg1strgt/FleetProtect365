@@ -48,9 +48,9 @@ function photoLabels(type?: string): string[] {
     "Pintle hook connected and closed",
     "Safety chains connected",
     "Air, brake, and electrical lines connected",
+    "Trailer 1 rear door and seal secure",
     "Fifth wheel plate connected to Trailer 2",
     "Trailer 2 landing gear raised",
-    "Trailer 1 rear door and seal secure",
     "Trailer 2 rear door and seal secure"
   ];
 
