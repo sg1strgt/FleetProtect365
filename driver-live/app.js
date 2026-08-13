@@ -741,10 +741,13 @@
           ? textField("Trailer ID","trailer1",c.trailer1) + textField("Chassis ID","chassis",c.chassis)
           : c.type !== "bobtail" ? numericField("Trailer 1 number","trailer1",c.trailer1) : ""}
         ${c.type === "doubles" ? numericField("Dolly number","dolly",c.dolly) + numericField("Trailer 2 number","trailer2",c.trailer2) : ""}
-        ${textField("Location From","from",c.from)}
-        ${textField("Location To","to",c.to)}
+        ${numericField("Location From","from",c.from)}
+        ${numericField("Location To","to",c.to)}
         <label>Notes</label>
-        <textarea id="notes" placeholder="Enter notes or NA">${esc(c.notes)}</textarea>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start">
+          <textarea id="notes" placeholder="Enter notes or NA">${esc(c.notes)}</textarea>
+          <button type="button" class="secondary na-btn" data-target="notes" style="width:auto;padding:12px 16px">NA</button>
+        </div>
       </section>
 
       <div class="grid two">
