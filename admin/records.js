@@ -55,10 +55,9 @@
     hub.querySelectorAll('[data-add-record]').forEach(b=>b.onclick=()=>openEditor(b.dataset.addRecord));
     hub.querySelector('[data-refresh-miles]').onclick=loadAll;
     hub.querySelector('[data-refresh-daily]').onclick=()=>openEditor('daily',null,true);
-    hub.querySelector('[data-copy-all-daily]').onclick=openCopyAll;
+    hub.querySelector('[data-copy-all-daily]').onclick=copyDailyText;
     hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
     ensureDialog();
-    ensureCopyAllDialog();
     restoreOrder();
   }
 
@@ -117,9 +116,18 @@
   }
 
   function ensureDialog(){if($('recordDialog'))return;const d=document.createElement('dialog');d.id='recordDialog';d.className='record-dialog';d.innerHTML='<form id="recordForm"><h2 id="recordDialogTitle"></h2><input id="recordType" type="hidden"><input id="recordId" type="hidden"><div id="recordFields"></div><p id="recordFormMsg"></p><div class="actions"><button id="recordReset" type="button">Refresh / Clear</button><button id="recordCancel" type="button">Cancel</button><button class="primary" type="submit">Save Record</button></div></form>';document.body.appendChild(d);$('recordCancel').onclick=()=>d.close();$('recordReset').onclick=()=>openEditor($('recordType').value,null,true);$('recordForm').onsubmit=saveRecord;}
-  function ensureCopyAllDialog(){if($('copyAllDailyDialog'))return;const d=document.createElement('dialog');d.id='copyAllDailyDialog';d.className='record-dialog';d.innerHTML='<form id="copyAllDailyForm"><h2>Copy All Daily Dispatch Records</h2><div class="record-form-grid"><label>Copy records from *<select id="copyAllSource" required></select></label><label>Copy records to *<input id="copyAllDestination" type="date" required></label></div><p id="copyAllDailyMsg">Every daily dispatch row from the source date will be copied to the destination date.</p><div class="actions"><button id="cancelCopyAllDaily" type="button">Cancel</button><button class="primary" type="submit">Copy All Records</button></div></form>';document.body.appendChild(d);$('cancelCopyAllDaily').onclick=()=>d.close();$('copyAllDailyForm').onsubmit=copyAllDaily;}
-  function openCopyAll(){ensureCopyAllDialog();const dates=[...new Set(state.daily.map(row=>row.dispatch_date))].sort().reverse();$('copyAllSource').innerHTML=dates.map(date=>`<option value="${date}">${fmtDate(date)}</option>`).join('');$('copyAllDestination').value=today();$('copyAllDailyMsg').textContent=dates.length?'Every daily dispatch row from the source date will be copied to the destination date.':'Add at least one Daily Dispatch record before using Copy All.';$('copyAllDailyForm').querySelector('button[type="submit"]').disabled=!dates.length;$('copyAllDailyDialog').showModal();}
-  async function copyAllDaily(event){event.preventDefault();const source=$('copyAllSource').value,destination=$('copyAllDestination').value;if(!source||!destination)return;if(source===destination)return void($('copyAllDailyMsg').textContent='Choose a different destination date.');const rows=state.daily.filter(row=>row.dispatch_date===source);if(!rows.length)return void($('copyAllDailyMsg').textContent='No records were found for that source date.');if(state.daily.some(row=>row.dispatch_date===destination)&&!confirm(`Daily dispatch records already exist for ${fmtDate(destination)}. Copy these records there anyway?`))return;const records=rows.map(row=>({company_id:company.id,dispatch_date:destination,driver_profile_id:row.driver_profile_id,driver_name:row.driver_name,run:row.run,dispatch_time:row.dispatch_time,truck_number:row.truck_number,created_by:profile.id,updated_by:profile.id,updated_at:new Date().toISOString()}));$('copyAllDailyMsg').textContent=`Copying ${records.length} records…`;const {error}=await client.from('daily_dispatch_records').insert(records);if(error)return void($('copyAllDailyMsg').textContent=error.message);$('copyAllDailyDialog').close();await loadAll();}
+  async function copyDailyText(){
+    if(!state.daily.length)return void($('dailySummary').innerHTML='<p class="records-empty">No Daily Dispatch records are available to copy.</p>');
+    const dates=[...new Set(state.daily.map(row=>row.dispatch_date))].sort().reverse();
+    const selectedDate=dates.includes(today())?today():dates[0];
+    const rows=state.daily.filter(row=>row.dispatch_date===selectedDate);
+    const text=[`Fleet Protect 365 — Daily Dispatch Record`,`Date: ${fmtDate(selectedDate)}`,'',...rows.map((row,index)=>`${index+1}. ${row.driver_name} | Run: ${row.run} | Dispatch: ${fmtTime(row.dispatch_time)} | Truck: ${row.truck_number}`)].join('\n');
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
+      else{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
+      $('dailySummary').innerHTML=`<p><b>${rows.length} record${rows.length===1?'':'s'} for ${fmtDate(selectedDate)} copied.</b> You can paste them into a text message.</p>`;
+    }catch{$('dailySummary').innerHTML='<p class="records-empty">The browser could not copy the records. Check clipboard permission and try again.</p>';}
+  }
   function timeField(name,label,value=''){const [h24='12',m='00']=String(value||'12:00').split(':');const n=Number(h24),period=n>=12?'PM':'AM',h=n%12||12;return `<label>${label} *<span class="record-time" data-time="${name}"><input inputmode="numeric" maxlength="2" value="${h}" aria-label="Hour" required><b>:</b><input inputmode="numeric" maxlength="2" value="${m}" aria-label="Minute" required><select><option ${period==='AM'?'selected':''}>AM</option><option ${period==='PM'?'selected':''}>PM</option></select></span></label>`;}
   function readTime(name){const g=document.querySelector(`[data-time="${name}"]`),inputs=g.querySelectorAll('input'),p=g.querySelector('select').value;let h=Number(inputs[0].value),m=Number(inputs[1].value);if(h<1||h>12||m<0||m>59)throw Error('Enter a valid time.');if(p==='PM'&&h<12)h+=12;if(p==='AM'&&h===12)h=0;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;}
   function driverField(value=''){return `<label>Driver Name *<select id="recordDriver" required>${driverOptions(value)}</select></label>`;}
