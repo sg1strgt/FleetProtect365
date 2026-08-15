@@ -7,7 +7,7 @@
   const fmtTime = value => value ? new Date(`2000-01-01T${value}`).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '—';
   const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const orderKey='fp365-reports-records-order';
-  let company, profile, drivers=[], state={dispatch:[],callout:[],timeoff:[],daily:[],mileage:[]};
+  let company, profile, drivers=[], trucks=[], state={dispatch:[],callout:[],timeoff:[],daily:[],mileage:[]};
 
   const definitions = {
     dispatch:{table:'dispatch_records',date:'dispatch_date',title:'Dispatch Record'},
@@ -24,14 +24,20 @@
     const {data,error}=await client.from('employee_profiles').select('*,companies(*)').eq('id',s.session.user.id).single();
     if(error) throw error;
     profile=data; company=Array.isArray(data.companies)?data.companies[0]:data.companies;
-    const result=await client.from('employee_profiles').select('id,full_name,display_name,employee_id,status').eq('company_id',company.id).is('deleted_at',null).order('full_name');
-    if(result.error) throw result.error;
-    drivers=(result.data||[]).filter(x=>x.status==='active');
+    const [driverResult,truckResult]=await Promise.all([
+      client.from('employee_profiles').select('id,full_name,display_name,employee_id,status').eq('company_id',company.id).is('deleted_at',null).order('full_name'),
+      client.from('trucks').select('id,truck_number,status').eq('company_id',company.id).is('deleted_at',null).order('truck_number')
+    ]);
+    if(driverResult.error) throw driverResult.error;
+    if(truckResult.error) throw truckResult.error;
+    drivers=(driverResult.data||[]).filter(x=>x.status==='active');
+    trucks=truckResult.data||[];
   }
 
   function driverOptions(selected=''){
     return '<option value="">Select driver</option>'+drivers.map(x=>`<option value="${x.id}" ${x.id===selected?'selected':''}>${esc(x.full_name||x.display_name)}${x.employee_id?` (${esc(x.employee_id)})`:''}</option>`).join('');
   }
+  function truckOptions(selected=''){const choices=trucks.filter(x=>x.status==='active'||x.truck_number===selected);return '<option value="">Select truck</option>'+choices.map(x=>`<option value="${esc(x.truck_number)}" ${x.truck_number===selected?'selected':''}>${esc(x.truck_number)}${x.status!=='active'?` (${esc(x.status)})`:''}</option>`).join('');}
 
   function shell(){
     const section=$('reports'); if(!section||$('recordsHub')) return;
@@ -124,7 +130,7 @@
     if(type==='dispatch')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${row?.dispatch_date||today()}" required></label>${driverField(row?.driver_profile_id)}${timeField('scheduled','Dispatch Time',row?.dispatch_time)}${timeField('actual','Dispatched Time',row?.actual_dispatched_time)}<div class="wide">${legsFields(row?.legs||[])}</div><label id="delayReasonRow" class="wide record-delay-note hidden">Reason dispatched more than 30 minutes late *<textarea id="recordDelayReason" rows="3">${esc(row?.delay_reason||'')}</textarea></label></div>`;
     if(type==='callout')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${row?.call_out_date||today()}" required></label>${driverField(row?.driver_profile_id)}<label class="wide">Reason *<textarea id="recordReason" required>${esc(row?.reason||'')}</textarea></label><label>Took decline because of? *<select id="recordDecline"><option value="false" ${!row?.took_decline?'selected':''}>No</option><option value="true" ${row?.took_decline?'selected':''}>Yes</option></select></label><label id="declineReasonRow" class="${row?.took_decline?'':'hidden'}">Decline reason<textarea id="recordDeclineReason">${esc(row?.decline_reason||'')}</textarea></label></div>`;
     if(type==='timeoff')html=`<div class="record-form-grid">${driverField(row?.driver_profile_id)}<label>Requested From *<input id="recordFromDate" type="date" value="${row?.date_from||today()}" required></label><label>Requested To *<input id="recordToDate" type="date" value="${row?.date_to||today()}" required></label></div>`;
-    if(type==='daily')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${row?.dispatch_date||today()}" required></label>${driverField(row?.driver_profile_id)}<label>Run *<input id="recordRun" value="${esc(row?.run||'')}" required></label>${timeField('daily','Dispatch Time',row?.dispatch_time)}<label>Truck Number *<input id="recordTruck" inputmode="numeric" pattern="[0-9]*" value="${esc(row?.truck_number||'')}" required></label></div>`;
+    if(type==='daily')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${row?.dispatch_date||today()}" required></label>${driverField(row?.driver_profile_id)}<label>Run *<input id="recordRun" value="${esc(row?.run||'')}" required></label>${timeField('daily','Dispatch Time',row?.dispatch_time)}<label>Truck Number *<select id="recordTruck" required>${truckOptions(row?.truck_number||'')}</select></label></div>`;
     if(type==='mileage')html=`<div class="record-form-grid"><label>Code From *<input id="recordCodeFrom" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_from||'')}" required></label><label>Name From *<input id="recordNameFrom" value="${esc(row?.name_from||'')}" required></label><label>Code To *<input id="recordCodeTo" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_to||'')}" required></label><label>Name To *<input id="recordNameTo" value="${esc(row?.name_to||'')}" required></label><label>Miles *<input id="recordMiles" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(row?.miles||'')}" required></label></div>`;
     $('recordFields').innerHTML=html;$('recordReset').classList.toggle('hidden',type!=='daily');
     if(type==='dispatch'){const updateDelay=()=>{$('delayReasonRow').classList.toggle('hidden',minutes(readTime('scheduled'),readTime('actual'))<=30);};document.querySelectorAll('[data-time] input,[data-time] select').forEach(x=>x.onchange=()=>{try{updateDelay();}catch{}});$('addThirdLeg').onclick=()=>document.querySelector('[data-leg="2"]').classList.remove('hidden');document.querySelector('[data-remove-leg]').onclick=()=>{const leg=document.querySelector('[data-leg="2"]');leg.querySelectorAll('input').forEach(x=>x.value='');leg.classList.add('hidden');};try{updateDelay();}catch{}}
