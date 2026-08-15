@@ -6,6 +6,7 @@
   const fmtDate = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString('en-US') : '—';
   const fmtTime = value => value ? new Date(`2000-01-01T${value}`).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '—';
   const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const orderKey='fp365-reports-records-order';
   let company, profile, drivers=[], state={dispatch:[],callout:[],timeoff:[],daily:[],mileage:[]};
 
   const definitions = {
@@ -42,19 +43,27 @@
       ${card('dispatch','Dispatch Record','Rolling 12 months, oldest to newest.','Add Record')}
       ${card('callout','Call Out Record','Driver call-outs and declines.','Add Record')}
       ${card('timeoff','Requested Time Off','Requested date ranges by driver.','Add Request')}
-      ${card('daily','Daily Dispatch Record','Daily driver, run, dispatch, and truck assignments.','Add Record','<button type="button" data-refresh-daily>Refresh / Clear</button>')}
+      ${card('daily','Daily Dispatch Record','Daily driver, run, dispatch, and truck assignments.','Add Record','<button type="button" data-copy-all-daily>Copy All</button><button type="button" data-refresh-daily>Refresh / Clear</button>')}
       ${card('mileage','Location ID Record','Mileage table used by dispatch reports.','Add Route')}`;
     section.insertBefore(hub,section.firstChild);
     hub.querySelectorAll('[data-add-record]').forEach(b=>b.onclick=()=>openEditor(b.dataset.addRecord));
     hub.querySelector('[data-refresh-miles]').onclick=loadAll;
     hub.querySelector('[data-refresh-daily]').onclick=()=>openEditor('daily',null,true);
+    hub.querySelector('[data-copy-all-daily]').onclick=openCopyAll;
+    hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
     ensureDialog();
+    ensureCopyAllDialog();
+    restoreOrder();
   }
 
   function card(type,title,description,button,extra=''){
     const action=type==='miles'?'<button type="button" data-refresh-miles>Refresh</button>':`<button type="button" class="primary" data-add-record="${type}">${button}</button>`;
-    return `<section class="records-card"><div class="head"><div><h3>${title}</h3><p>${description}</p></div><div class="records-actions">${extra}${action}</div></div><div id="${type}Summary"></div><div class="records-table"><table><thead id="${type}Head"></thead><tbody id="${type}Body"></tbody></table></div><p id="${type}Empty" class="records-empty hidden">No records entered.</p></section>`;
+    return `<section class="records-card" data-record-card="${type}"><div class="head"><div><h3>${title}</h3><p>${description}</p></div><div class="records-actions">${extra}${action}<span class="records-move"><button type="button" data-move-card="${type}" data-direction="-1" aria-label="Move ${title} up">↑</button><button type="button" data-move-card="${type}" data-direction="1" aria-label="Move ${title} down">↓</button></span></div></div><div id="${type}Summary"></div><div class="records-table"><table><thead id="${type}Head"></thead><tbody id="${type}Body"></tbody></table></div><p id="${type}Empty" class="records-empty hidden">No records entered.</p></section>`;
   }
+
+  function saveOrder(){localStorage.setItem(orderKey,JSON.stringify([...document.querySelectorAll('[data-record-card]')].map(card=>card.dataset.recordCard)));}
+  function restoreOrder(){try{const order=JSON.parse(localStorage.getItem(orderKey)||'[]'),hub=$('recordsHub');order.forEach(type=>{const card=hub.querySelector(`[data-record-card="${type}"]`);if(card)hub.appendChild(card);});}catch{localStorage.removeItem(orderKey);}}
+  function moveCard(type,direction){const card=document.querySelector(`[data-record-card="${type}"]`);if(!card)return;const sibling=direction<0?card.previousElementSibling:card.nextElementSibling;if(!sibling||!sibling.matches('[data-record-card]'))return;if(direction<0)card.parentNode.insertBefore(card,sibling);else card.parentNode.insertBefore(sibling,card);saveOrder();}
 
   async function loadAll(){
     try{
@@ -102,6 +111,9 @@
   }
 
   function ensureDialog(){if($('recordDialog'))return;const d=document.createElement('dialog');d.id='recordDialog';d.className='record-dialog';d.innerHTML='<form id="recordForm"><h2 id="recordDialogTitle"></h2><input id="recordType" type="hidden"><input id="recordId" type="hidden"><div id="recordFields"></div><p id="recordFormMsg"></p><div class="actions"><button id="recordReset" type="button">Refresh / Clear</button><button id="recordCancel" type="button">Cancel</button><button class="primary" type="submit">Save Record</button></div></form>';document.body.appendChild(d);$('recordCancel').onclick=()=>d.close();$('recordReset').onclick=()=>openEditor($('recordType').value,null,true);$('recordForm').onsubmit=saveRecord;}
+  function ensureCopyAllDialog(){if($('copyAllDailyDialog'))return;const d=document.createElement('dialog');d.id='copyAllDailyDialog';d.className='record-dialog';d.innerHTML='<form id="copyAllDailyForm"><h2>Copy All Daily Dispatch Records</h2><div class="record-form-grid"><label>Copy records from *<select id="copyAllSource" required></select></label><label>Copy records to *<input id="copyAllDestination" type="date" required></label></div><p id="copyAllDailyMsg">Every daily dispatch row from the source date will be copied to the destination date.</p><div class="actions"><button id="cancelCopyAllDaily" type="button">Cancel</button><button class="primary" type="submit">Copy All Records</button></div></form>';document.body.appendChild(d);$('cancelCopyAllDaily').onclick=()=>d.close();$('copyAllDailyForm').onsubmit=copyAllDaily;}
+  function openCopyAll(){ensureCopyAllDialog();const dates=[...new Set(state.daily.map(row=>row.dispatch_date))].sort().reverse();$('copyAllSource').innerHTML=dates.map(date=>`<option value="${date}">${fmtDate(date)}</option>`).join('');$('copyAllDestination').value=today();$('copyAllDailyMsg').textContent=dates.length?'Every daily dispatch row from the source date will be copied to the destination date.':'Add at least one Daily Dispatch record before using Copy All.';$('copyAllDailyForm').querySelector('button[type="submit"]').disabled=!dates.length;$('copyAllDailyDialog').showModal();}
+  async function copyAllDaily(event){event.preventDefault();const source=$('copyAllSource').value,destination=$('copyAllDestination').value;if(!source||!destination)return;if(source===destination)return void($('copyAllDailyMsg').textContent='Choose a different destination date.');const rows=state.daily.filter(row=>row.dispatch_date===source);if(!rows.length)return void($('copyAllDailyMsg').textContent='No records were found for that source date.');if(state.daily.some(row=>row.dispatch_date===destination)&&!confirm(`Daily dispatch records already exist for ${fmtDate(destination)}. Copy these records there anyway?`))return;const records=rows.map(row=>({company_id:company.id,dispatch_date:destination,driver_profile_id:row.driver_profile_id,driver_name:row.driver_name,run:row.run,dispatch_time:row.dispatch_time,truck_number:row.truck_number,created_by:profile.id,updated_by:profile.id,updated_at:new Date().toISOString()}));$('copyAllDailyMsg').textContent=`Copying ${records.length} records…`;const {error}=await client.from('daily_dispatch_records').insert(records);if(error)return void($('copyAllDailyMsg').textContent=error.message);$('copyAllDailyDialog').close();await loadAll();}
   function timeField(name,label,value=''){const [h24='12',m='00']=String(value||'12:00').split(':');const n=Number(h24),period=n>=12?'PM':'AM',h=n%12||12;return `<label>${label} *<span class="record-time" data-time="${name}"><input inputmode="numeric" maxlength="2" value="${h}" aria-label="Hour" required><b>:</b><input inputmode="numeric" maxlength="2" value="${m}" aria-label="Minute" required><select><option ${period==='AM'?'selected':''}>AM</option><option ${period==='PM'?'selected':''}>PM</option></select></span></label>`;}
   function readTime(name){const g=document.querySelector(`[data-time="${name}"]`),inputs=g.querySelectorAll('input'),p=g.querySelector('select').value;let h=Number(inputs[0].value),m=Number(inputs[1].value);if(h<1||h>12||m<0||m>59)throw Error('Enter a valid time.');if(p==='PM'&&h<12)h+=12;if(p==='AM'&&h===12)h=0;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;}
   function driverField(value=''){return `<label>Driver Name *<select id="recordDriver" required>${driverOptions(value)}</select></label>`;}
