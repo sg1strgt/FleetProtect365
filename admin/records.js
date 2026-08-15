@@ -57,18 +57,20 @@
     hub.querySelector('[data-refresh-daily]').onclick=clearTodayDailyRecords;
     hub.querySelector('[data-copy-all-daily]').onclick=copyDailyText;
     hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
+    hub.querySelectorAll('[data-toggle-card]').forEach(button=>button.onclick=()=>toggleCard(button));
     ensureDialog();
     restoreOrder();
   }
 
   function card(type,title,description,button,extra=''){
     const action=type==='miles'?'<button type="button" data-refresh-miles>Refresh</button>':`<button type="button" class="primary" data-add-record="${type}">${button}</button>`;
-    return `<section class="records-card" data-record-card="${type}"><div class="head"><div><h3>${title}</h3><p>${description}</p></div><div class="records-actions">${extra}${action}<span class="records-move"><button type="button" data-move-card="${type}" data-direction="-1" aria-label="Move ${title} up">↑</button><button type="button" data-move-card="${type}" data-direction="1" aria-label="Move ${title} down">↓</button></span></div></div><div id="${type}Summary"></div><div class="records-table"><table><thead id="${type}Head"></thead><tbody id="${type}Body"></tbody></table></div><p id="${type}Empty" class="records-empty hidden">No records entered.</p></section>`;
+    return `<section class="records-card collapsed" data-record-card="${type}"><button class="records-card-title" type="button" data-toggle-card="${type}" aria-expanded="false"><span>${title}</span><span class="records-chevron" aria-hidden="true">›</span></button><div class="records-card-content"><p class="records-description">${description}</p><div class="records-actions">${extra}${action}<span class="records-move"><button type="button" data-move-card="${type}" data-direction="-1" aria-label="Move ${title} up">↑</button><button type="button" data-move-card="${type}" data-direction="1" aria-label="Move ${title} down">↓</button></span></div><div id="${type}Summary"></div><div class="records-table"><table><thead id="${type}Head"></thead><tbody id="${type}Body"></tbody></table></div><p id="${type}Empty" class="records-empty hidden">No records entered.</p></div></section>`;
   }
 
   function saveOrder(){localStorage.setItem(orderKey,JSON.stringify([...document.querySelectorAll('[data-record-card]')].map(card=>card.dataset.recordCard)));}
   function restoreOrder(){try{const order=JSON.parse(localStorage.getItem(orderKey)||'[]'),hub=$('recordsHub');order.forEach(type=>{const card=hub.querySelector(`[data-record-card="${type}"]`);if(card)hub.appendChild(card);});}catch{localStorage.removeItem(orderKey);}}
   function moveCard(type,direction){const card=document.querySelector(`[data-record-card="${type}"]`);if(!card)return;const sibling=direction<0?card.previousElementSibling:card.nextElementSibling;if(!sibling||!sibling.matches('[data-record-card]'))return;if(direction<0)card.parentNode.insertBefore(card,sibling);else card.parentNode.insertBefore(sibling,card);saveOrder();}
+  function toggleCard(button){const card=button.closest('[data-record-card]'),expanded=card.classList.toggle('collapsed')===false;button.setAttribute('aria-expanded',String(expanded));}
 
   async function loadAll(){
     try{
