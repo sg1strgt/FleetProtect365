@@ -114,6 +114,7 @@
   }
 
   async function loadReports() {
+    window.FP365_LOAD_RECORDS?.();
     $('reportsMsg').textContent = 'Loading archived reports…';
     const { data, error } = await client.from('end_shift_reports')
       .select('report_id,report_date,pdf_file_name,storage_path,email_recipients,email_status,emailed_at,inspection_ids,driver_id,employee_profiles!end_shift_reports_driver_id_fkey(full_name,display_name,employee_id)')
@@ -172,7 +173,7 @@
       document.querySelectorAll('.view').forEach((view) => view.classList.add('hidden'));
       document.querySelectorAll('nav button').forEach((item) => item.classList.toggle('active', item === button));
       $('reports').classList.remove('hidden');
-      $('title').textContent = 'Archived End-of-Shift Reports';
+      $('title').textContent = 'Reports and Records';
       loadReports();
     }, true);
   });
