@@ -71,6 +71,7 @@
     entries: [],
     current: null,
     selectedEntry: null,
+    incident: null,
     pretripDone: false,
     companyContent: null,
     entryRetentionHours: Number(readJson("fp365_entry_retention_hours", cfg.LOCAL_ENTRY_RETENTION_HOURS || 24)) || 24
@@ -484,6 +485,10 @@
       certification: renderCertification,
       entries: renderEntries,
       entryDetail: renderEntryDetail,
+      incidentConfirm: renderIncidentConfirm,
+      incidentEquipment: renderIncidentEquipment,
+      incidentPhotos: renderIncidentPhotos,
+      incidentDetails: renderIncidentDetails,
       endShift: renderEndShift,
       feedback: renderFeedback
     };
@@ -611,6 +616,7 @@
         <button id="newBtn" class="choice"><strong>New Inspection</strong><span>Begin with the required pre-trip checklist</span></button>
         ${state.draft ? `<button id="continueBtn" class="choice"><strong>Continue Saved Entry</strong><span>Resume your unfinished entry</span></button>` : ""}
         <button id="entriesBtn" class="choice"><strong>View Entries</strong><span>Open and review your submitted records</span></button>
+        <button id="incidentBtn" class="choice incident-choice"><strong>Accident / Incident Report</strong><span>Document an accident or incident immediately</span></button>
         <button id="endBtn" class="choice"><strong>End of Shift</strong><span>Complete the checklist and finish your shift</span></button>
         <button id="logoutBtn" class="danger">Log Out</button>
       </section>`;
@@ -626,6 +632,7 @@
       };
     }
     document.getElementById("entriesBtn").onclick = () => navigate("entries");
+    document.getElementById("incidentBtn").onclick = beginIncidentReport;
     document.getElementById("endBtn").onclick = () => navigate("endShift");
     document.getElementById("logoutBtn").onclick = logoutDriver;
   }
@@ -1036,6 +1043,270 @@
   function detail(label, value) {
     return `<div class="detail-row"><strong>${esc(label)}</strong><div class="muted">${esc(value || "Not set")}</div></div>`;
   }
+
+  function latestIncidentEquipment() {
+    const entries = driverEntries().slice().sort((a, b) =>
+      new Date(b.submitted_at || b.created_at || 0).getTime() - new Date(a.submitted_at || a.created_at || 0).getTime()
+    );
+    const source = state.current || state.draft || entries[0] || {};
+    return {
+      inspection_id: source.id || null,
+      equipment_type: source.type || "",
+      truck: source.truck || "",
+      trailer1: source.trailer1 || "",
+      trailer2: source.trailer2 || "",
+      dolly: source.dolly || "",
+      chassis: source.chassis || ""
+    };
+  }
+
+  async function beginIncidentReport() {
+    const openedAt = new Date().toISOString();
+    state.incident = {
+      opened_at: openedAt,
+      equipment: latestIncidentEquipment(),
+      gps: { latitude: null, longitude: null, accuracy_meters: null, captured_at: openedAt },
+      photos: [],
+      details: {}
+    };
+    navigate("incidentConfirm");
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        if (!state.incident || state.incident.opened_at !== openedAt) return;
+        state.incident.gps = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy_meters: Math.round(position.coords.accuracy),
+          captured_at: new Date(position.timestamp).toISOString()
+        };
+        if (state.screen === "incidentConfirm") renderIncidentConfirm();
+      },
+      () => {
+        if (state.screen === "incidentConfirm") {
+          const status = document.getElementById("incidentGpsStatus");
+          if (status) status.textContent = "Location permission was not available. Tap Retry GPS before continuing.";
+        }
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  }
+
+  function incidentEquipmentSummary(equipmentData) {
+    return `<div class="detail-list">
+      ${detail("Truck number", equipmentData.truck)}
+      ${detail("Trailer 1", equipmentData.trailer1)}
+      ${equipmentData.chassis ? detail("Chassis ID", equipmentData.chassis) : ""}
+      ${equipmentData.dolly ? detail("Dolly", equipmentData.dolly) : ""}
+      ${equipmentData.trailer2 ? detail("Trailer 2", equipmentData.trailer2) : ""}
+    </div>`;
+  }
+
+  function renderIncidentConfirm() {
+    if (!state.incident) return goHome();
+    header("Accident / Incident Report");
+    const incident = state.incident;
+    const gpsReady = Number.isFinite(incident.gps.latitude) && Number.isFinite(incident.gps.longitude);
+    main.innerHTML = `<section class="card">
+      <h2>Confirm equipment</h2>
+      <p class="field-help">This information was copied from the most recent inspection. Changes made in this report will not change the inspection.</p>
+      ${incidentEquipmentSummary(incident.equipment)}
+      <p><strong>Is this equipment information correct?</strong></p>
+      <div class="grid two"><button id="incidentEquipmentYes" class="success" type="button">Yes</button><button id="incidentEquipmentNo" class="secondary" type="button">No - Update</button></div>
+    </section>
+    <section class="card">
+      <h2>Automatic incident record</h2>
+      ${detail("Opened", new Date(incident.opened_at).toLocaleString())}
+      <p id="incidentGpsStatus" class="${gpsReady ? "okbox" : "alert"}">${gpsReady
+        ? `GPS captured: ${incident.gps.latitude.toFixed(6)}, ${incident.gps.longitude.toFixed(6)} (accuracy approximately ${incident.gps.accuracy_meters || "unknown"} meters)`
+        : "Capturing exact GPS location..."}</p>
+      ${gpsReady ? "" : '<button id="retryIncidentGps" class="secondary" type="button">Retry GPS</button>'}
+    </section>`;
+    document.getElementById("incidentEquipmentYes").onclick = () => {
+      if (!incident.equipment.truck) return showModal("Equipment required", "<p>No recent truck number was found. Select No - Update and enter the accident-report equipment.</p>");
+      if (!gpsReady) return showModal("GPS required", "<p>Please allow location access and wait for GPS capture before continuing.</p>");
+      navigate("incidentPhotos");
+    };
+    document.getElementById("incidentEquipmentNo").onclick = () => navigate("incidentEquipment");
+    const retry = document.getElementById("retryIncidentGps");
+    if (retry) retry.onclick = beginIncidentGpsRetry;
+  }
+
+  function beginIncidentGpsRetry() {
+    if (!state.incident || !navigator.geolocation) return;
+    const status = document.getElementById("incidentGpsStatus");
+    if (status) status.textContent = "Capturing exact GPS location...";
+    navigator.geolocation.getCurrentPosition(position => {
+      state.incident.gps = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy_meters: Math.round(position.coords.accuracy),
+        captured_at: new Date(position.timestamp).toISOString()
+      };
+      renderIncidentConfirm();
+    }, () => {
+      if (status) status.textContent = "GPS could not be captured. Check location permission and try again.";
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }
+
+  function renderIncidentEquipment() {
+    if (!state.incident) return goHome();
+    header("Update Report Equipment");
+    const e = state.incident.equipment;
+    main.innerHTML = `<section class="card">
+      <h2>Accident-report equipment only</h2>
+      <p class="field-help">These edits will not alter the current or previously submitted inspection.</p>
+      ${numericField("Truck number", "incidentTruck", e.truck)}
+      ${e.equipment_type === "container" ? textField("Trailer ID", "incidentTrailer1", e.trailer1) : numericField("Trailer 1 number", "incidentTrailer1", e.trailer1)}
+      ${e.equipment_type === "container" ? textField("Chassis ID", "incidentChassis", e.chassis) : ""}
+      ${numericField("Dolly number", "incidentDolly", e.dolly)}
+      ${numericField("Trailer 2 number", "incidentTrailer2", e.trailer2)}
+    </section><button id="saveIncidentEquipment" class="primary" type="button">Continue to Photos</button>`;
+    document.querySelectorAll(".na-btn").forEach(button => button.onclick = () => {
+      const input = document.getElementById(button.dataset.target);
+      input.value = "NA";
+      input.focus();
+    });
+    document.getElementById("saveIncidentEquipment").onclick = () => {
+      e.truck = document.getElementById("incidentTruck").value.trim();
+      e.trailer1 = document.getElementById("incidentTrailer1").value.trim();
+      e.chassis = document.getElementById("incidentChassis")?.value.trim() || "";
+      e.dolly = document.getElementById("incidentDolly").value.trim();
+      e.trailer2 = document.getElementById("incidentTrailer2").value.trim();
+      if (!e.truck) return showModal("Truck required", "<p>Enter the truck number or use NA.</p>");
+      if (!Number.isFinite(state.incident.gps.latitude)) return showModal("GPS required", "<p>Return to the confirmation screen and capture GPS before continuing.</p>");
+      navigate("incidentPhotos");
+    };
+  }
+
+  function renderIncidentPhotos() {
+    if (!state.incident) return goHome();
+    header("Incident Photos");
+    const photos = state.incident.photos;
+    main.innerHTML = `<section class="card">
+      <h2>Accident / Incident photos</h2>
+      <p class="field-help">Take or upload every photo needed to document the scene. There is no photo-count limit.</p>
+      <div class="photo-actions">
+        <label class="file-label">Take Photo<input id="incidentCamera" type="file" accept="image/*" capture="environment" multiple></label>
+        <label class="file-label">Upload Photos<input id="incidentUpload" type="file" accept="image/*" multiple></label>
+      </div>
+      <div class="status ${photos.length ? "ok" : "missing"}">${photos.length} photo${photos.length === 1 ? "" : "s"} added</div>
+      ${photos.map((photo, index) => `<div class="photo-item"><img class="photo-preview expandable-photo" src="${photo.data_url}" alt="Incident photo ${index + 1}" title="Tap to enlarge"><button type="button" class="danger remove-incident-photo" data-index="${index}">Remove Photo ${index + 1}</button></div>`).join("")}
+    </section><button id="incidentPhotosContinue" class="primary" type="button">Continue to Report Details</button>`;
+    document.querySelectorAll(".expandable-photo").forEach(img => img.onclick = () => showPhoto(img.src, img.alt));
+    const addPhotos = async event => {
+      const files = [...(event.target.files || [])];
+      for (const file of files) photos.push(await fileRecord(file));
+      renderIncidentPhotos();
+    };
+    document.getElementById("incidentCamera").onchange = addPhotos;
+    document.getElementById("incidentUpload").onchange = addPhotos;
+    document.querySelectorAll(".remove-incident-photo").forEach(button => button.onclick = () => {
+      photos.splice(Number(button.dataset.index), 1);
+      renderIncidentPhotos();
+    });
+    document.getElementById("incidentPhotosContinue").onclick = () => {
+      if (!photos.length) return showModal("Photos required", "<p>Add at least one accident or incident photo before continuing.</p>");
+      navigate("incidentDetails");
+    };
+  }
+
+  function incidentYesNo(labelText, id, value) {
+    return `<label>${labelText} *</label><select id="${id}" required><option value="">Select Yes or No</option><option value="Yes" ${value === "Yes" ? "selected" : ""}>Yes</option><option value="No" ${value === "No" ? "selected" : ""}>No</option></select>`;
+  }
+
+  function formatIncidentPhone(value) {
+    const digits = String(value || "").replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+
+  function renderIncidentDetails() {
+    if (!state.incident) return goHome();
+    header("Incident Report Details");
+    const d = state.incident.details;
+    main.innerHTML = `<section class="card">
+      <h2>Location and event</h2>
+      <p class="field-help">Provide complete details. The opened date/time and exact GPS coordinates are already recorded.</p>
+      <label>Nearest City / Town *</label><input id="incidentCity" value="${esc(d.city || "")}" required>
+      ${numericField("Mile Marker", "incidentMileMarker", d.mile_marker || "")}
+      ${numericField("Nearest Exit", "incidentExit", d.nearest_exit || "")}
+      <label>Highway *</label><input id="incidentHighway" value="${esc(d.highway || "")}" required>
+      <label>Direction *</label><select id="incidentDirection"><option value="">Select direction</option>${["Northbound","Southbound","Eastbound","Westbound","Other"].map(value => `<option ${d.direction === value ? "selected" : ""}>${value}</option>`).join("")}</select>
+      ${incidentYesNo("Injuries or fatalities?", "incidentInjuries", d.injuries)}
+      ${incidentYesNo("Hazardous materials involved?", "incidentHazmat", d.hazmat)}
+      ${incidentYesNo("Fuel spilled?", "incidentFuel", d.fuel_spill)}
+    </section>
+    <section class="card"><h2>Driver statement and sequence of events</h2><textarea id="incidentStatement" placeholder="Provide a complete statement and sequence of events">${esc(d.driver_statement || "")}</textarea></section>
+    <section class="card"><h2>Witness information</h2><textarea id="incidentWitness" placeholder="Witness name, contact information, and statement, if available">${esc(d.witness_info || "")}</textarea></section>
+    <section class="card"><h2>Tow company</h2><label>Company / Contact Name</label><input id="incidentTowName" value="${esc(d.tow_name || "")}"><label>Phone Number</label><input id="incidentTowPhone" type="tel" inputmode="tel" value="${esc(d.tow_phone || "")}" placeholder="(XXX) XXX-XXXX"></section>
+    <section class="card"><h2>Police information</h2>${numericField("Police Report Number", "incidentPoliceReport", d.police_report_number || "")}<label>Officer Name / Badge</label><input id="incidentOfficer" value="${esc(d.officer || "")}"><label>Police Department</label><input id="incidentDepartment" value="${esc(d.police_department || "")}"><label>PD Phone Number</label><input id="incidentPolicePhone" type="tel" inputmode="tel" value="${esc(d.police_phone || "")}" placeholder="(XXX) XXX-XXXX"></section>
+    <section class="card"><h2>Details of Incident</h2><textarea id="incidentDetailsText" placeholder="Add any additional details about the incident">${esc(d.incident_details || "")}</textarea></section>
+    <button id="submitIncidentReport" class="danger" type="button">Create, Email, and Archive Report</button>`;
+    document.querySelectorAll(".na-btn").forEach(button => button.onclick = () => {
+      const input = document.getElementById(button.dataset.target);
+      input.value = "NA";
+      input.focus();
+    });
+    ["incidentTowPhone", "incidentPolicePhone"].forEach(id => {
+      const input = document.getElementById(id);
+      input.oninput = () => { input.value = formatIncidentPhone(input.value); };
+    });
+    document.getElementById("submitIncidentReport").onclick = submitIncidentReport;
+  }
+
+  async function submitIncidentReport() {
+    const incident = state.incident;
+    const values = {
+      city: document.getElementById("incidentCity").value.trim(),
+      mile_marker: document.getElementById("incidentMileMarker").value.trim(),
+      nearest_exit: document.getElementById("incidentExit").value.trim(),
+      highway: document.getElementById("incidentHighway").value.trim(),
+      direction: document.getElementById("incidentDirection").value,
+      injuries: document.getElementById("incidentInjuries").value,
+      hazmat: document.getElementById("incidentHazmat").value,
+      fuel_spill: document.getElementById("incidentFuel").value,
+      driver_statement: document.getElementById("incidentStatement").value.trim(),
+      witness_info: document.getElementById("incidentWitness").value.trim(),
+      tow_name: document.getElementById("incidentTowName").value.trim(),
+      tow_phone: document.getElementById("incidentTowPhone").value.trim(),
+      police_report_number: document.getElementById("incidentPoliceReport").value.trim(),
+      officer: document.getElementById("incidentOfficer").value.trim(),
+      police_department: document.getElementById("incidentDepartment").value.trim(),
+      police_phone: document.getElementById("incidentPolicePhone").value.trim(),
+      incident_details: document.getElementById("incidentDetailsText").value.trim()
+    };
+    incident.details = values;
+    const required = [["Nearest City / Town", values.city], ["Mile Marker", values.mile_marker], ["Nearest Exit", values.nearest_exit], ["Highway", values.highway], ["Direction", values.direction], ["Injuries or fatalities", values.injuries], ["Hazardous materials", values.hazmat], ["Fuel spilled", values.fuel_spill], ["Driver statement and sequence of events", values.driver_statement], ["Details of Incident", values.incident_details]];
+    const missing = required.filter(([, value]) => !value).map(([label]) => label);
+    if (missing.length) return showModal("Complete required details", `<p>${missing.map(esc).join("<br>")}</p>`);
+    if (!supabaseClient) return showModal("Report service unavailable", "<p>Supabase is not configured.</p>");
+    const button = document.getElementById("submitIncidentReport");
+    button.disabled = true;
+    button.textContent = "Creating and sending report...";
+    try {
+      const { data, error } = await supabaseClient.functions.invoke("send-incident-report", { body: {
+        driver: { full_name: state.user?.full_name || "", employee_id: state.user?.employee_id || "", email: state.user?.email || "" },
+        opened_at: incident.opened_at,
+        gps: incident.gps,
+        equipment: incident.equipment,
+        details: incident.details,
+        photos: incident.photos,
+        time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago"
+      }});
+      if (error) throw error;
+      if (!data?.ok) throw new Error(data?.error || "Report delivery was not confirmed.");
+      state.incident = null;
+      goHome();
+      showModal("Accident / Incident Report sent", `<p>Report ${esc(data.report_id)} was emailed to the driver, all active Admins and Super Admins, and archived in Google Drive.</p>`);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Create, Email, and Archive Report";
+      showModal("Report could not be confirmed", `<p>${esc(error.message || String(error))}</p><p>Your report remains open. Correct the issue and try again.</p>`);
+    }
+  }
+
 function renderEndShift() {
     header("End of Shift");
     const items = checklistItems("question_post");

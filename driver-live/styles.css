@@ -24,6 +24,7 @@ main{padding-top:18px}
 .success{background:rgba(39,195,106,.16);border-color:rgba(39,195,106,.5);color:#d8ffe8}
 .choice{background:var(--panel2);border-color:var(--line);color:var(--text);text-align:left}
 .choice strong{display:block;font-size:20px}.choice span{display:block;color:var(--muted);font-weight:500;margin-top:4px}
+.incident-choice{border-color:rgba(255,92,87,.7);background:linear-gradient(180deg,rgba(111,24,27,.48),rgba(61,16,20,.42))}.incident-choice strong{color:#ff8b87}
 label{display:block;font-weight:800;margin:14px 0 7px}
 input,select,textarea{width:100%;border-radius:14px;border:1px solid var(--line);background:#07111c;color:var(--text);padding:14px;outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--accent)}
