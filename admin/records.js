@@ -49,12 +49,12 @@
       ${card('dispatch','Dispatch Record','Rolling 12 months, oldest to newest.','Add Record')}
       ${card('callout','Call Out Record','Driver call-outs and declines.','Add Record')}
       ${card('timeoff','Requested Time Off','Requested date ranges by driver.','Add Request')}
-      ${card('daily','Daily Dispatch Record','Daily driver, run, dispatch, and truck assignments.','Add Record','<button type="button" data-copy-all-daily>Copy All</button><button type="button" data-refresh-daily>Refresh / Clear</button>')}
+      ${card('daily','Daily Dispatch Record','Daily driver, run, dispatch, and truck assignments.','Add Record','<button type="button" data-copy-all-daily>Copy All</button><button type="button" data-refresh-daily>Clear Today’s Records</button>')}
       ${card('mileage','Location ID Record','Mileage table used by dispatch reports.','Add Route')}`;
     section.insertBefore(hub,section.firstChild);
     hub.querySelectorAll('[data-add-record]').forEach(b=>b.onclick=()=>openEditor(b.dataset.addRecord));
     hub.querySelector('[data-refresh-miles]').onclick=loadAll;
-    hub.querySelector('[data-refresh-daily]').onclick=()=>openEditor('daily',null,true);
+    hub.querySelector('[data-refresh-daily]').onclick=clearTodayDailyRecords;
     hub.querySelector('[data-copy-all-daily]').onclick=copyDailyText;
     hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
     ensureDialog();
@@ -127,6 +127,15 @@
       else{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
       $('dailySummary').innerHTML=`<p><b>${rows.length} record${rows.length===1?'':'s'} for ${fmtDate(selectedDate)} copied.</b> You can paste them into a text message.</p>`;
     }catch{$('dailySummary').innerHTML='<p class="records-empty">The browser could not copy the records. Check clipboard permission and try again.</p>';}
+  }
+  async function clearTodayDailyRecords(){
+    const date=today(),rows=state.daily.filter(row=>row.dispatch_date===date);
+    if(!rows.length)return void($('dailySummary').innerHTML='<p class="records-empty">There are no Daily Dispatch records for today to clear.</p>');
+    if(!confirm(`Clear all ${rows.length} Daily Dispatch record${rows.length===1?'':'s'} for ${fmtDate(date)}? This cannot be undone.`))return;
+    const {error}=await client.from('daily_dispatch_records').delete().eq('company_id',company.id).eq('dispatch_date',date);
+    if(error)return void($('dailySummary').innerHTML=`<p class="records-empty">${esc(error.message)}</p>`);
+    await loadAll();
+    $('dailySummary').innerHTML=`<p><b>Today’s Daily Dispatch records were cleared.</b></p>`;
   }
   function timeField(name,label,value=''){const hasValue=Boolean(value),[h24='',m='']=String(value||'').split(':'),n=Number(h24),period=hasValue?(n>=12?'PM':'AM'):'',h=hasValue?(n%12||12):'';return `<label>${label} *<span class="record-time" data-time="${name}"><input inputmode="numeric" maxlength="2" value="${h}" aria-label="Hour" required><b>:</b><input inputmode="numeric" maxlength="2" value="${m}" aria-label="Minute" required><select required><option value="" ${!period?'selected':''}>AM/PM</option><option ${period==='AM'?'selected':''}>AM</option><option ${period==='PM'?'selected':''}>PM</option></select></span></label>`;}
   function readTime(name){const g=document.querySelector(`[data-time="${name}"]`),inputs=g.querySelectorAll('input'),p=g.querySelector('select').value;let h=Number(inputs[0].value),m=Number(inputs[1].value);if(h<1||h>12||m<0||m>59)throw Error('Enter a valid time.');if(p==='PM'&&h<12)h+=12;if(p==='AM'&&h===12)h=0;return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`;}
