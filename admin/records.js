@@ -94,7 +94,7 @@
     }catch(error){$('reportsMsg').textContent=error.message;}
   }
 
-  function renderAll(){renderCallouts();renderTimeOff();renderDaily();renderMileage();renderMiles();bindRows();}
+  function renderAll(){renderCallouts();renderTimeOff();renderDaily();renderMileage();bindRows();}
   function actionButtons(type,id,copy=false){return `<div class="row-actions"><button data-edit-type="${type}" data-edit-id="${id}">Edit</button>${copy?`<button data-copy-type="${type}" data-copy-id="${id}">Copy</button>`:''}<button class="danger" data-delete-type="${type}" data-delete-id="${id}">Delete</button></div>`;}
   function table(type,headers,rows){$(type+'Head').innerHTML=`<tr>${headers.map(x=>`<th>${x}</th>`).join('')}</tr>`;$(type+'Body').innerHTML=rows.join('');$(type+'Empty').classList.toggle('hidden',rows.length>0);}
   function renderDispatch(){const newestFirst=[...state.dispatch].sort((a,b)=>b.dispatch_date.localeCompare(a.dispatch_date)||String(b.created_at).localeCompare(String(a.created_at)));table('dispatch',['Date','Driver','Truck / Notes','Dispatch / Dispatched','Route','Delay','Action'],newestFirst.map(r=>{const legs=(r.legs||[]).map(x=>`${esc(x.from)} → ${esc(x.to)}`).join('<br>');const delay=minutes(r.dispatch_time,r.actual_dispatched_time);return `<tr><td>${fmtDate(r.dispatch_date)}</td><td>${esc(r.driver_name)}</td><td>${esc(r.truck_number||'—')}${r.notes?`<br><small>${esc(r.notes)}</small>`:''}</td><td>${fmtTime(r.dispatch_time)}<br>${fmtTime(r.actual_dispatched_time)}</td><td>${legs}</td><td>${r.actual_dispatched_time?`${delay} min`:'—'}${r.delay_reason?`<br>${esc(r.delay_reason)}`:''}</td><td>${actionButtons('dispatch',r.id)}</td></tr>`;}));}
