@@ -48,7 +48,6 @@
     section.querySelector('h2').textContent='Archived End-of-Shift Reports';
     const hub=document.createElement('div'); hub.id='recordsHub'; hub.className='records-hub';
     hub.innerHTML=`<div class="records-intro"><h2>Reports and Records</h2><p>Maintain attendance, time-off, daily assignments, and route-mile records.</p></div>
-      ${card('miles','Weekly / Monthly Miles Report','Rolling 12 months; Saturday through Friday.','Refresh')}
       ${card('callout','Call Out Record','Driver call-outs and declines.','Add Record')}
       ${card('timeoff','Requested Time Off','Requested date ranges by driver.','Add Request')}
       ${card('daily','Daily Dispatch Record','Daily driver, run, dispatch, and truck assignments.','Add Record','<button type="button" data-copy-all-daily>Copy All</button><button type="button" data-refresh-daily>Clear Today’s Records</button>')}
@@ -58,7 +57,6 @@
     const archive=document.createElement('section');archive.className='records-card collapsed records-archive-card';archive.dataset.collapseCard='archive';archive.innerHTML='<button class="records-card-title" type="button" data-toggle-card="archive" aria-expanded="false"><span>Archived End-of-Shift Reports</span><span class="records-chevron" aria-hidden="true">›</span></button><div class="records-card-content" id="archiveReportsContent"></div>';
     archiveNodes.forEach(node=>archive.querySelector('#archiveReportsContent').appendChild(node));section.appendChild(archive);
     hub.querySelectorAll('[data-add-record]').forEach(b=>b.onclick=()=>openEditor(b.dataset.addRecord));
-    hub.querySelector('[data-refresh-miles]').onclick=loadAll;
     hub.querySelector('[data-refresh-daily]').onclick=clearTodayDailyRecords;
     hub.querySelector('[data-copy-all-daily]').onclick=copyDailyText;
     hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
