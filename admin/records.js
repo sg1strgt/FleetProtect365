@@ -63,7 +63,7 @@
     hub.querySelector('[data-copy-all-daily]').onclick=copyDailyText;
     hub.querySelectorAll('[data-move-card]').forEach(button=>button.onclick=()=>moveCard(button.dataset.moveCard,Number(button.dataset.direction)));
     section.querySelectorAll('[data-toggle-card]').forEach(button=>button.onclick=()=>toggleCard(button));
-    section.querySelectorAll('[data-record-filter]').forEach(input=>input.onchange=()=>renderAll());
+    section.querySelectorAll('[data-record-filter]').forEach(input=>input.onchange=()=>{if(input.dataset.recordFilter==='timeoff')selectedTimeOffIds.clear();renderAll();});
     section.querySelectorAll('[data-export-record]').forEach(button=>button.onclick=()=>exportRecordPdf(button.dataset.exportRecord));
     section.querySelectorAll('[data-email-record]').forEach(button=>button.onclick=()=>emailRecordPdf(button.dataset.emailRecord));
     ensureDialog();
@@ -151,17 +151,12 @@
   }
   async function copyTimeOffText(row){
     if(!row)return;
-    const text=[
-      'Fleet Protect 365 — Requested Time Off',
-      `Driver: ${row.driver_name}`,
-      `Requested From: ${fmtDate(row.date_from)}`,
-      `Requested To: ${fmtDate(row.date_to)}`,
-      `Comments: ${row.comments||'None'}`
-    ].join('\n');
+    const rows=selectedTimeOffIds.size?filteredRecords('timeoff'):[row];
+    const text=['Fleet Protect 365 — Requested Time Off','',...rows.map((item,index)=>`${index+1}. ${item.driver_name} | From: ${fmtDate(item.date_from)} | To: ${fmtDate(item.date_to)}${item.comments?` | Comments: ${item.comments}`:''}`)].join('\n');
     try{
       if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
       else{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
-      $('timeoffSummary').innerHTML=`<p><b>${esc(row.driver_name)}’s time-off request was copied as text.</b> You can paste it into a text message.</p>`;
+      $('timeoffSummary').innerHTML=`<p><b>${rows.length} time-off request${rows.length===1?' was':'s were'} copied as text.</b> You can paste ${rows.length===1?'it':'them'} into a text message.</p>`;
     }catch{$('timeoffSummary').innerHTML='<p class="records-empty">The browser could not copy the request. Check clipboard permission and try again.</p>';}
   }
   async function clearTodayDailyRecords(){
