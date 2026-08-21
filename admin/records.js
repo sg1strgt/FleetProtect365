@@ -130,7 +130,7 @@
 
   function bindRows(){
     $('recordsHub').querySelectorAll('[data-edit-type]').forEach(b=>b.onclick=()=>openEditor(b.dataset.editType,state[b.dataset.editType].find(x=>x.id===b.dataset.editId)));
-    $('recordsHub').querySelectorAll('[data-copy-type]').forEach(b=>{b.onclick=()=>{const row=state[b.dataset.copyType].find(x=>x.id===b.dataset.copyId);openEditor(b.dataset.copyType,{...row,id:null,dispatch_date:today()},true);};});
+    $('recordsHub').querySelectorAll('[data-copy-type]').forEach(b=>{b.onclick=()=>{const row=state[b.dataset.copyType].find(x=>x.id===b.dataset.copyId);if(b.dataset.copyType==='timeoff')copyTimeOffText(row);else openEditor(b.dataset.copyType,{...row,id:null,dispatch_date:today()},true);};});
     $('recordsHub').querySelectorAll('[data-delete-type]').forEach(b=>b.onclick=()=>removeRecord(b.dataset.deleteType,b.dataset.deleteId));
     $('recordsHub').querySelectorAll('[data-select-timeoff]').forEach(box=>box.onchange=()=>{box.checked?selectedTimeOffIds.add(box.dataset.selectTimeoff):selectedTimeOffIds.delete(box.dataset.selectTimeoff);const all=$('selectAllTimeOff'),boxes=[...document.querySelectorAll('[data-select-timeoff]')];if(all)all.checked=boxes.length>0&&boxes.every(item=>item.checked);});
     if($('selectAllTimeOff'))$('selectAllTimeOff').onchange=event=>{document.querySelectorAll('[data-select-timeoff]').forEach(box=>{box.checked=event.target.checked;event.target.checked?selectedTimeOffIds.add(box.dataset.selectTimeoff):selectedTimeOffIds.delete(box.dataset.selectTimeoff);});};
@@ -148,6 +148,21 @@
       else{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
       $('dailySummary').innerHTML=`<p><b>${rows.length} record${rows.length===1?'':'s'} for ${fmtDate(selectedDate)} copied.</b> You can paste them into a text message.</p>`;
     }catch{$('dailySummary').innerHTML='<p class="records-empty">The browser could not copy the records. Check clipboard permission and try again.</p>';}
+  }
+  async function copyTimeOffText(row){
+    if(!row)return;
+    const text=[
+      'Fleet Protect 365 — Requested Time Off',
+      `Driver: ${row.driver_name}`,
+      `Requested From: ${fmtDate(row.date_from)}`,
+      `Requested To: ${fmtDate(row.date_to)}`,
+      `Comments: ${row.comments||'None'}`
+    ].join('\n');
+    try{
+      if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
+      else{const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();document.execCommand('copy');area.remove();}
+      $('timeoffSummary').innerHTML=`<p><b>${esc(row.driver_name)}’s time-off request was copied as text.</b> You can paste it into a text message.</p>`;
+    }catch{$('timeoffSummary').innerHTML='<p class="records-empty">The browser could not copy the request. Check clipboard permission and try again.</p>';}
   }
   async function clearTodayDailyRecords(){
     const date=today(),rows=state.daily.filter(row=>row.dispatch_date===date);
