@@ -5,20 +5,24 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#07101a" />
   <title>Fleet Protect 365 — Interactive Driver Demo</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="../driver-live/styles.css?v=20260814-incident-report-1" />
+  <link rel="stylesheet" href="../driver-live/fedex-locations.css?v=20260810-fedex-live-3" />
+  <link rel="stylesheet" href="styles.css?v=20260821-live-layout-1" />
 </head>
 <body>
   <div id="app" class="app">
-    <div class="demo-ribbon"><span>INTERACTIVE DEMO</span><button id="restartTop">Restart</button></div>
     <header class="topbar">
-      <button id="backBtn" class="icon-btn" aria-label="Go back">←</button>
-      <div><div class="brand">Fleet Protect 365</div><div id="screenTitle" class="screen-title">Driver Demo</div></div>
-      <button id="menuBtn" class="icon-btn" aria-label="Open menu">☰</button>
+      <button id="backBtn" class="icon-btn hidden" aria-label="Go back">←</button>
+      <div><div class="brand">Fleet Protect 365</div><div id="screenTitle" class="screen-title">Driver</div></div>
+      <div class="topbar-actions">
+        <button id="homeBtn" class="icon-btn hidden" aria-label="Home">⌂</button>
+        <button id="menuBtn" class="icon-btn hidden" aria-label="Resources menu">☰</button>
+      </div>
     </header>
     <main id="main"></main>
-    <footer class="footer"><button id="homeBtn">⌂ Home</button><span>Joe Public · Demo</span></footer>
+    <footer class="footer"><button id="feedbackFooter" class="text-btn">Feedback / Suggestion</button><span>Driver Demo · Joe Public</span></footer>
   </div>
   <dialog id="modal"><div class="modal-card"><button class="modal-x" data-close>×</button><div id="modalBody"></div></div></dialog>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260821-live-layout-1"></script>
 </body>
 </html>
