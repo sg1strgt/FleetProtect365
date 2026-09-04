@@ -2,7 +2,7 @@
   'use strict';
   const s=window.FP365_ADMIN_CLIENT;if(!s)return;
   const $=id=>document.getElementById(id),sections=['features','resources','dashboard','mobile','documents','navigation'];
-  let profile,company,items=[],versions=[],frameReady=false,selectedNode=null,selectedItem=null,dirty=false;
+  let profile,company,items=[],versions=[],frameReady=false,selectedNode=null,selectedItem=null,dirty=false,currentDevice='desktop';
   const newId=()=>crypto.randomUUID?crypto.randomUUID():`draft-${Date.now()}-${Math.random()}`;
   const findItem=id=>items.find(x=>(x._draftId||x.id||x.item_key)===id);
   async function context(){if(profile&&company)return;const {data:session}=await s.auth.getSession(),user=session.session?.user;if(!user)throw new Error('Admin session is unavailable.');const {data,error}=await s.from('employee_profiles').select('*,companies(*)').eq('id',user.id).single();if(error)throw error;profile=data;company=Array.isArray(data.companies)?data.companies[0]:data.companies;if(!company?.id)throw new Error('Company record not found.');}
@@ -17,34 +17,41 @@
     $('homepageFontSize').disabled=!textSelected;$('homepageFontColor').disabled=!textSelected;$('homepageResetStyle').disabled=!textSelected;
     $('homepageFontSize').value=item.style_data?.[keySize]||Math.round(parseFloat(computed.fontSize)||16);
     $('homepageFontColor').value=item.style_data?.[keyColor]||rgbToHex(computed.color)||'#ffffff';
-    $('homepageEditLink').classList.toggle('hidden',!('url'in item));$('homepageHideItem').classList.toggle('hidden',item.item_type==='text');$('homepageDeleteItem').classList.toggle('hidden',item.item_type==='text');
+    const isCard=item.item_type==='card';$('homepageEditLink').classList.toggle('hidden',!('url'in item));$('homepageBringFront').classList.toggle('hidden',!isCard);$('homepageSendBack').classList.toggle('hidden',!isCard);$('homepageHideItem').classList.toggle('hidden',item.item_type==='text');$('homepageDeleteItem').classList.toggle('hidden',item.item_type==='text');
     $('homepageHideItem').textContent=item.active===false?'Show':'Hide';
     node.ownerDocument.querySelectorAll('.home-selected').forEach(x=>x.classList.remove('home-selected'));(textSelected?node:card)?.classList.add('home-selected');
   }
   function rgbToHex(value){const m=String(value).match(/\d+/g);return m&&m.length>=3?'#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join(''):'';}
   function renderCanvas(keepScroll=true){
     const frame=$('homepageCanvas'),win=frame.contentWindow,doc=frame.contentDocument;if(!frameReady||!win?.FP365_HOMEPAGE_RENDER||!doc)return;
-    const y=keepScroll?win.scrollY:0;selectedNode=selectedItem=null;$('homepageTextToolbar').classList.add('hidden');win.FP365_HOMEPAGE_RENDER([...items].sort((a,b)=>a.sort_order-b.sort_order),{editor:true});
+    const y=keepScroll?win.scrollY:0;selectedNode=selectedItem=null;$('homepageTextToolbar').classList.add('hidden');win.FP365_HOMEPAGE_RENDER([...items].sort((a,b)=>a.sort_order-b.sort_order),{editor:true});win.FP365_HOMEPAGE_FREEFORM?.(items,currentDevice,{initialize:true});
     doc.querySelectorAll('[data-home-id][data-home-field]').forEach(node=>{node.contentEditable='plaintext-only';node.spellcheck=true;node.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();selectNode(node);});node.addEventListener('input',()=>{const item=findItem(node.dataset.homeId);if(!item)return;item[node.dataset.homeField]=node.innerText.trim();markDirty();});node.addEventListener('keydown',event=>{if(node.tagName==='A'&&event.key==='Enter')event.preventDefault();});});
     doc.querySelectorAll('[data-home-section]').forEach(card=>decorateCard(card));doc.addEventListener('click',event=>{if(!event.target.closest('[data-home-id]')){doc.querySelectorAll('.home-selected').forEach(x=>x.classList.remove('home-selected'));$('homepageTextToolbar').classList.add('hidden');}});win.scrollTo(0,y);
   }
   function decorateCard(card){
-    const doc=card.ownerDocument,move=doc.createElement('span'),resize=doc.createElement('span');move.className='home-drag-handle';move.textContent='MOVE';resize.className='home-resize-handle';resize.title='Drag to resize';card.append(move,resize);
-    card.addEventListener('click',event=>{if(event.target.closest('[data-home-field],.home-drag-handle,.home-resize-handle'))return;event.stopPropagation();selectNode(card);});
-    move.addEventListener('pointerdown',event=>startMove(event,card));resize.addEventListener('pointerdown',event=>startResize(event,card));
+    const doc=card.ownerDocument,move=doc.createElement('span');move.className='home-drag-handle';move.textContent='MOVE';card.append(move);for(const edge of ['n','ne','e','se','s','sw','w','nw']){const handle=doc.createElement('span');handle.className='home-resize-handle';handle.dataset.edge=edge;handle.title=`Resize ${edge}`;handle.addEventListener('pointerdown',event=>startResize(event,card,edge));card.append(handle);}
+    card.addEventListener('click',event=>{if(event.target.closest('[data-home-field],.home-drag-handle,.home-resize-handle'))return;event.stopPropagation();selectNode(card);});card.addEventListener('pointerdown',event=>{if(event.target===card)startMove(event,card);});
+    move.addEventListener('pointerdown',event=>startMove(event,card));
   }
   function startMove(event,card){
-    event.preventDefault();event.stopPropagation();const doc=card.ownerDocument,section=card.dataset.homeSection;card.classList.add('home-dragging');event.target.setPointerCapture?.(event.pointerId);let target=null;
-    const move=e=>{const found=doc.elementFromPoint(e.clientX,e.clientY)?.closest?.(`[data-home-section="${section}"]`);if(found&&found!==card)target=found;};
-    const end=()=>{card.classList.remove('home-dragging');doc.removeEventListener('pointermove',move);doc.removeEventListener('pointerup',end);if(!target)return;const a=findItem(card.dataset.homeId),b=findItem(target.dataset.homeId);if(!a||!b)return;const order=a.sort_order;a.sort_order=b.sort_order;b.sort_order=order;normalize();markDirty('Card moved. Publish when ready.');renderCanvas();};
+    event.preventDefault();event.stopPropagation();const doc=card.ownerDocument,item=findItem(card.dataset.homeId),layout=item?.style_data?.layouts?.[currentDevice];if(!layout)return;const startX=event.clientX,startY=event.clientY,startLeft=Number(layout.x)||0,startTop=Number(layout.y)||0;card.classList.add('home-dragging');card.style.zIndex=String(Math.max(...items.map(x=>Number(x.style_data?.layouts?.[currentDevice]?.z)||0),10)+1);layout.z=Number(card.style.zIndex);event.target.setPointerCapture?.(event.pointerId);
+    const move=e=>{layout.x=Math.max(0,Math.round(startLeft+e.clientX-startX));layout.y=Math.max(0,Math.round(startTop+e.clientY-startY));card.style.left=`${layout.x}px`;card.style.top=`${layout.y}px`;};
+    const end=()=>{card.classList.remove('home-dragging');doc.removeEventListener('pointermove',move);doc.removeEventListener('pointerup',end);markDirty('Card moved. Publish when ready.');selectNode(card);};
     doc.addEventListener('pointermove',move);doc.addEventListener('pointerup',end,{once:true});
   }
-  function startResize(event,card){
-    event.preventDefault();event.stopPropagation();const doc=card.ownerDocument,item=findItem(card.dataset.homeId);if(!item)return;const startX=event.clientX,startY=event.clientY,start=card.getBoundingClientRect(),parent=card.parentElement,columns=Math.max(1,doc.defaultView.getComputedStyle(parent).gridTemplateColumns.split(' ').length),columnWidth=parent.getBoundingClientRect().width/columns;event.target.setPointerCapture?.(event.pointerId);
-    const move=e=>{const width=Math.max(1,Math.min(columns,Math.round((start.width+e.clientX-startX)/columnWidth)));const height=Math.max(70,Math.round(start.height+e.clientY-startY));item.style_data={...(item.style_data||{}),width,min_height:height};card.style.setProperty('--home-span',width);card.style.minHeight=`${height}px`;};
+  function startResize(event,card,edge){
+    event.preventDefault();event.stopPropagation();const doc=card.ownerDocument,item=findItem(card.dataset.homeId),layout=item?.style_data?.layouts?.[currentDevice];if(!layout)return;const startX=event.clientX,startY=event.clientY,start={x:Number(layout.x)||0,y:Number(layout.y)||0,width:Number(layout.width)||card.offsetWidth,height:Number(layout.height)||card.offsetHeight};event.target.setPointerCapture?.(event.pointerId);
+    const move=e=>{const dx=e.clientX-startX,dy=e.clientY-startY;let{x,y,width,height}=start;if(edge.includes('e'))width=Math.max(90,start.width+dx);if(edge.includes('s'))height=Math.max(55,start.height+dy);if(edge.includes('w')){width=Math.max(90,start.width-dx);x=start.x+(start.width-width);}if(edge.includes('n')){height=Math.max(55,start.height-dy);y=start.y+(start.height-height);}Object.assign(layout,{x:Math.max(0,Math.round(x)),y:Math.max(0,Math.round(y)),width:Math.round(width),height:Math.round(height)});Object.assign(card.style,{left:`${layout.x}px`,top:`${layout.y}px`,width:`${layout.width}px`,height:`${layout.height}px`});};
     const end=()=>{doc.removeEventListener('pointermove',move);doc.removeEventListener('pointerup',end);markDirty('Card resized. Publish when ready.');selectNode(card);};doc.addEventListener('pointermove',move);doc.addEventListener('pointerup',end,{once:true});
   }
   function applyStyle(kind,value){if(!selectedItem||!selectedNode?.dataset.homeField)return;const field=selectedNode.dataset.homeField,key=styleKey(selectedItem,field,kind);selectedItem.style_data={...(selectedItem.style_data||{})};if(value)selectedItem.style_data[key]=value;else delete selectedItem.style_data[key];if(kind==='font_size')selectedNode.style.fontSize=value?`${value}px`:'';else selectedNode.style.color=value||'';markDirty();}
+  function deriveDeviceLayout(device){
+    if(device==='desktop'||items.some(x=>x.style_data?.layouts?.[device]))return;const cards=items.filter(x=>x.item_type==='card'&&x.active!==false),source=cards.map(item=>({item,layout:item.style_data?.layouts?.desktop})).filter(x=>x.layout).sort((a,b)=>a.layout.y-b.layout.y||a.layout.x-b.layout.x);if(!source.length)return;const targetWidth=$('homepageCanvas').clientWidth||400,margin=12,gap=12;
+    if(device==='phone'){let y=580;source.forEach(({item,layout})=>{const width=Math.max(180,targetWidth-margin*2),height=Math.max(90,Math.min(420,Number(layout.height)||140));item.style_data.layouts[device]={x:margin,y,width,height,z:Number(layout.z)||10};y+=height+gap;});}
+    else{const columns=2,width=Math.max(220,(targetWidth-margin*2-gap)/columns);let y=520,rowHeight=0;source.forEach(({item,layout},index)=>{const column=index%columns,height=Math.max(90,Math.min(440,Number(layout.height)||150));if(column===0&&index)y+=rowHeight+gap;item.style_data.layouts[device]={x:margin+column*(width+gap),y,width,height,z:Number(layout.z)||10};rowHeight=Math.max(rowHeight,height);});}
+    markDirty(`${device==='phone'?'Phone':'Tablet'} layout generated from the computer layout. You can fine-tune it independently.`);
+  }
+  function changeLayer(direction){if(!selectedItem)return;const layouts=selectedItem.style_data?.layouts,layout=layouts?.[currentDevice];if(!layout)return;const levels=items.map(x=>Number(x.style_data?.layouts?.[currentDevice]?.z)||10);layout.z=direction==='front'?Math.max(...levels)+1:Math.min(...levels)-1;markDirty(direction==='front'?'Card brought to front.':'Card sent backward.');renderCanvas();}
   function openEditor(){
     $('homepageItemDialogTitle').textContent='Add to Homepage';$('homepageItemId').value=newId();$('homepageItemType').value='card';$('homepageItemSection').value='dashboard';$('homepageItemTitle').value='';$('homepageItemBody').value='';$('homepageItemIcon').value='';$('homepageItemUrl').value='';$('homepageItemLinkLabel').value='';$('homepageItemNewTab').checked=false;$('homepageItemMsg').textContent='';updateDialogFields();$('homepageItemDialog').showModal();
   }
@@ -56,9 +63,10 @@
   function frameLoaded(){frameReady=true;renderCanvas(false);setTimeout(()=>renderCanvas(false),400);}
   function show(){document.querySelectorAll('.view').forEach(x=>x.classList.add('hidden'));$('homepage').classList.remove('hidden');document.querySelectorAll('nav [data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view==='homepage'));$('title').textContent='Visual Homepage Editor';load();}
   document.querySelector('nav [data-view="homepage"]')?.addEventListener('click',show);$('homepageCanvas').addEventListener('load',frameLoaded);$('addHomepageCard').onclick=openEditor;$('publishHomepage').onclick=publish;$('restoreHomepage').onclick=restore;$('homepageItemType').onchange=updateDialogFields;$('homepageItemForm').onsubmit=addItem;$('cancelHomepageItem').onclick=()=>$('homepageItemDialog').close();
-  document.querySelectorAll('[data-canvas-size]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-canvas-size]').forEach(x=>x.classList.toggle('active',x===button));$('homepageCanvasShell').className=`homepage-canvas-shell ${button.dataset.canvasSize}`;});
+  document.querySelectorAll('[data-canvas-size]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-canvas-size]').forEach(x=>x.classList.toggle('active',x===button));currentDevice=button.dataset.canvasSize;$('homepageCanvasShell').className=`homepage-canvas-shell ${currentDevice}`;setTimeout(()=>{deriveDeviceLayout(currentDevice);renderCanvas(false);},230);});
   $('homepageFontSize').oninput=event=>applyStyle('font_size',Math.max(10,Math.min(120,Number(event.target.value)||16)));$('homepageFontColor').oninput=event=>applyStyle('color',event.target.value);$('homepageResetStyle').onclick=()=>{applyStyle('font_size',null);applyStyle('color',null);selectNode(selectedNode);};
   $('homepageEditLink').onclick=()=>{if(!selectedItem)return;const next=prompt('Link address',selectedItem.url||'');if(next===null)return;selectedItem.url=next.trim();markDirty('Link changed. Publish when ready.');renderCanvas();};
+  $('homepageBringFront').onclick=()=>changeLayer('front');$('homepageSendBack').onclick=()=>changeLayer('back');
   $('homepageHideItem').onclick=()=>{if(!selectedItem)return;selectedItem.active=selectedItem.active===false;markDirty(selectedItem.active?'Item will be shown.':'Item will be hidden.');renderCanvas();};
   $('homepageDeleteItem').onclick=()=>{if(!selectedItem||!confirm(`Delete “${selectedItem.title||'this item'}” from the draft?`))return;items=items.filter(x=>x!==selectedItem);normalize();markDirty('Item deleted from the draft. Publish when ready.');renderCanvas();};
   window.addEventListener('beforeunload',event=>{if(!dirty)return;event.preventDefault();event.returnValue='';});
