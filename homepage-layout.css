@@ -1,4 +1,5 @@
 @media (min-width:1051px){#homeDashboardCards>.tile,#homeFeatures>.feature,.mobile-section>.card,.documents-section>.card{grid-column:span var(--home-span,1)}}
+[hidden]{display:none!important}
 .homepage-visual-editing{scroll-behavior:auto}
 .homepage-visual-editing [data-home-id][data-home-field]{cursor:text;outline:1px dashed transparent;outline-offset:3px}
 .homepage-visual-editing [data-home-id][data-home-field]:hover{outline-color:#a86bff}
