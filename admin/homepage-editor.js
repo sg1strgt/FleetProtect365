@@ -12,7 +12,7 @@
   function updateUndo(){const button=$('undoHomepage');if(button)button.disabled=!undoStack.length;}
   function pushUndo(){undoStack.push(snapshot());if(undoStack.length>50)undoStack.shift();updateUndo();}
   function undo(){if(!undoStack.length)return;items=undoStack.pop();updateUndo();markDirty('Last homepage change undone. Publish when ready.');renderCanvas();}
-  function styleKey(item,field,kind){if(item.item_type==='card'&&field==='title')return`title_${kind}`;if(item.item_type==='card'&&field==='body')return`body_${kind}`;return kind;}
+  function styleKey(item,field,kind){if(field.startsWith('static__'))return`${field}_${kind}`;if(item.item_type==='card'&&field==='title')return`title_${kind}`;if(item.item_type==='card'&&field==='body')return`body_${kind}`;return kind;}
   function selectNode(node){
     const card=node?.closest?.('[data-home-section]'),id=node?.dataset.homeId||card?.dataset.homeId,item=findItem(id);if(!item)return;
     selectedNode=node;selectedItem=item;const toolbar=$('homepageTextToolbar');toolbar.classList.remove('hidden');
@@ -21,7 +21,7 @@
     $('homepageFontSize').disabled=!textSelected;$('homepageFontColor').disabled=!textSelected;$('homepageResetStyle').disabled=!textSelected;
     $('homepageFontSize').value=item.style_data?.[keySize]||Math.round(parseFloat(computed.fontSize)||16);
     $('homepageFontColor').value=item.style_data?.[keyColor]||rgbToHex(computed.color)||'#ffffff';
-    const movable=!!node.dataset.homeFreeform;$('homepageEditLink').classList.toggle('hidden',!('url'in item));$('homepageBringFront').classList.toggle('hidden',!movable);$('homepageSendBack').classList.toggle('hidden',!movable);$('homepageHideItem').classList.toggle('hidden',item.item_type==='text');$('homepageDeleteItem').classList.toggle('hidden',item.item_type==='text');
+    const movable=!!node.dataset.homeFreeform,staticText=field.startsWith('static__');$('homepageEditLink').classList.toggle('hidden',staticText||!('url'in item));$('homepageBringFront').classList.toggle('hidden',!movable);$('homepageSendBack').classList.toggle('hidden',!movable);$('homepageHideItem').classList.toggle('hidden',staticText||item.item_type==='text');$('homepageDeleteItem').classList.remove('hidden');
     $('homepageHideItem').textContent=item.active===false?'Show':'Hide';
     node.ownerDocument.querySelectorAll('.home-selected').forEach(x=>x.classList.remove('home-selected'));(textSelected?node:card)?.classList.add('home-selected');
   }
@@ -29,7 +29,7 @@
   function renderCanvas(keepScroll=true){
     const frame=$('homepageCanvas'),win=frame.contentWindow,doc=frame.contentDocument;if(!frameReady||!win?.FP365_HOMEPAGE_RENDER||!doc)return;
     const y=keepScroll?win.scrollY:0;selectedNode=selectedItem=null;$('homepageTextToolbar').classList.add('hidden');win.FP365_HOMEPAGE_RENDER([...items].sort((a,b)=>a.sort_order-b.sort_order),{editor:true});win.FP365_HOMEPAGE_FREEFORM?.(items,currentDevice,{initialize:true});
-    doc.querySelectorAll('[data-home-id][data-home-field]').forEach(node=>{node.contentEditable='plaintext-only';node.spellcheck=true;node.addEventListener('focus',pushUndo);node.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();selectNode(node);});node.addEventListener('input',()=>{const item=findItem(node.dataset.homeId);if(!item)return;const copy=node.cloneNode(true);copy.querySelectorAll('.home-drag-handle,.home-resize-handle').forEach(x=>x.remove());item[node.dataset.homeField]=copy.innerText.trim();markDirty();});node.addEventListener('keydown',event=>{if(node.tagName==='A'&&event.key==='Enter')event.preventDefault();});});
+    doc.querySelectorAll('[data-home-id][data-home-field]').forEach(node=>{node.contentEditable='plaintext-only';node.spellcheck=true;node.addEventListener('focus',pushUndo);node.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();selectNode(node);});node.addEventListener('input',()=>{const item=findItem(node.dataset.homeId);if(!item)return;const copy=node.cloneNode(true);copy.querySelectorAll('.home-drag-handle,.home-resize-handle').forEach(x=>x.remove());const value=copy.innerText.trim(),field=node.dataset.homeField;if(field.startsWith('static__')){item.style_data=item.style_data||{};item.style_data.static_content={...(item.style_data.static_content||{}),[field]:value};}else item[field]=value;markDirty();});node.addEventListener('keydown',event=>{if(node.tagName==='A'&&event.key==='Enter')event.preventDefault();});});
     doc.querySelectorAll('[data-home-section], [data-home-freeform="true"]').forEach(target=>decorateTarget(target));doc.addEventListener('click',event=>{if(!event.target.closest('[data-home-id]')){doc.querySelectorAll('.home-selected').forEach(x=>x.classList.remove('home-selected'));$('homepageTextToolbar').classList.add('hidden');}});win.scrollTo(0,y);
   }
   function decorateTarget(target){
@@ -73,6 +73,6 @@
   $('homepageEditLink').onclick=()=>{if(!selectedItem)return;const next=prompt('Link address',selectedItem.url||'');if(next===null)return;pushUndo();selectedItem.url=next.trim();markDirty('Link changed. Publish when ready.');renderCanvas();};
   $('homepageBringFront').onclick=()=>changeLayer('front');$('homepageSendBack').onclick=()=>changeLayer('back');
   $('homepageHideItem').onclick=()=>{if(!selectedItem)return;pushUndo();selectedItem.active=selectedItem.active===false;markDirty(selectedItem.active?'Item will be shown.':'Item will be hidden.');renderCanvas();};
-  $('homepageDeleteItem').onclick=()=>{if(!selectedItem||!confirm(`Delete “${selectedItem.title||'this item'}” from the draft?`))return;pushUndo();items=items.filter(x=>x!==selectedItem);normalize();markDirty('Item deleted from the draft. Publish when ready.');renderCanvas();};
+  $('homepageDeleteItem').onclick=()=>{if(!selectedItem||!confirm('Delete only the selected element from the draft?'))return;pushUndo();const field=selectedNode?.dataset.homeField||'';if(field.startsWith('static__')){selectedItem.style_data=selectedItem.style_data||{};selectedItem.style_data.static_hidden={...(selectedItem.style_data.static_hidden||{}),[field]:true};}else if(field){selectedItem.style_data=selectedItem.style_data||{};selectedItem.style_data.hidden_fields={...(selectedItem.style_data.hidden_fields||{}),[field]:true};}else items=items.filter(x=>x!==selectedItem);normalize();markDirty('Selected element deleted from the draft. Use Undo to restore it.');renderCanvas();};
   window.addEventListener('beforeunload',event=>{if(!dirty)return;event.preventDefault();event.returnValue='';});
 })();
