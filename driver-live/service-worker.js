@@ -1,12 +1,14 @@
-const CACHE_NAME = "fp365-driver-v1.10.0-incident-report-1";
+const CACHE_NAME = "fp365-driver-v1.11.0-app-messages-1";
 
 const APP_FILES = [
   "./",
   "./index.html",
   "./styles.css",
   "./fedex-locations.css",
+  "./messages.css",
   "./app.js",
   "./fedex-locations.js",
+  "./messages.js",
   "./config.js",
   "./manifest.webmanifest"
 ];
@@ -14,6 +16,14 @@ const APP_FILES = [
 self.addEventListener("install", event => {
   self.skipWaiting();
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_FILES)));
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  event.waitUntil(clients.matchAll({type:"window",includeUncontrolled:true}).then(windows => {
+    const existing=windows.find(client=>"focus" in client);
+    return existing ? existing.focus() : clients.openWindow("./");
+  }));
 });
 
 self.addEventListener("activate", event => {

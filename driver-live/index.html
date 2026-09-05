@@ -10,6 +10,7 @@
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="stylesheet" href="styles.css?v=20260814-incident-report-1" />
   <link rel="stylesheet" href="fedex-locations.css?v=20260810-fedex-live-3" />
+  <link rel="stylesheet" href="messages.css?v=20260905-app-messages-1" />
 </head>
 <body>
   <div id="app" class="app">
@@ -45,10 +46,11 @@
   <script src="config.js?v=20260803-company-retention-1"></script>
   <script src="app.js?v=20260814-incident-report-1"></script>
   <script src="fedex-locations.js?v=20260810-fedex-live-3"></script>
+  <script src="messages.js?v=20260905-app-messages-1"></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./service-worker.js?v=20260814-incident-report-1").catch(console.error);
+        navigator.serviceWorker.register("./service-worker.js?v=20260905-app-messages-1").catch(console.error);
       });
     }
   </script>
