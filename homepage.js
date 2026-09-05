@@ -2,7 +2,7 @@
   'use strict';
   const SUPABASE_URL='https://ahoejwyxfclndcbcxhwv.supabase.co',SUPABASE_KEY='sb_publishable_FeyV-yXT6lwFHh737rYnAQ_mYoP8TIW';
   const byId=id=>document.getElementById(id),itemByKey=(items,key)=>items.find(item=>item.item_key===key);
-  const safeUrl=value=>{const url=String(value||'').trim();if(!url)return'';if(/^(#|mailto:|tel:)/i.test(url))return url;try{const parsed=new URL(url,location.href);return['http:','https:'].includes(parsed.protocol)?parsed.href:'';}catch(_){return'';}};
+  const safeUrl=value=>{let url=String(value||'').trim();if(!url)return'';if(/^(#|mailto:|tel:)/i.test(url))return url;if(/^www\./i.test(url)||/^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/|$)/i.test(url))url=`https://${url}`;try{const parsed=new URL(url);return['http:','https:'].includes(parsed.protocol)?parsed.href:'';}catch(_){return'';}};
   const applyTextStyle=(element,style={},prefix='')=>{if(!element)return;const size=Number(style[`${prefix}font_size`]),color=style[`${prefix}color`];if(size>=10&&size<=120)element.style.fontSize=`${size}px`;else element.style.removeProperty('font-size');if(/^#[0-9a-f]{6}$/i.test(color||''))element.style.color=color;else element.style.removeProperty('color');};
   const identify=(element,item,field)=>{if(!element||!item)return;element.dataset.homeId=item._draftId||item.id||item.item_key||'';element.dataset.homeField=field;element.hidden=item.style_data?.hidden_fields?.[field]===true;};
   const anchorId=item=>`home-${item.section_key}-${normalized(item.title).replace(/\s+/g,'-')||'card'}`;
