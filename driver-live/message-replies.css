@@ -1,0 +1,4 @@
+.app-message-reply{margin-top:16px}
+.app-message-reply label{display:block;margin-bottom:6px;font-weight:800}
+.app-message-reply textarea{width:100%;min-height:90px;box-sizing:border-box;padding:10px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}
+.app-message-reply small{display:block;min-height:18px;margin-top:5px;color:#52617a}

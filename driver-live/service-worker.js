@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.11.0-app-messages-1";
+const CACHE_NAME = "fp365-driver-v1.11.1-message-replies-1";
 
 const APP_FILES = [
   "./",
@@ -6,6 +6,7 @@ const APP_FILES = [
   "./styles.css",
   "./fedex-locations.css",
   "./messages.css",
+  "./message-replies.css",
   "./app.js",
   "./fedex-locations.js",
   "./messages.js",
