@@ -25,6 +25,7 @@
     <label>Color <input id="homepageFontColor" type="color" value="#ffffff"></label>
     <button id="homepageResetStyle" type="button">Reset Style</button>
     <button id="homepageEditLink" type="button" class="hidden">Edit Link</button>
+    <button id="homepageManageLinks" type="button" class="hidden">Manage Card Links</button>
     <button id="homepageEditIcon" type="button" class="hidden">Add Icon</button>
     <button id="homepageUploadIcon" type="button" class="hidden">Upload Icon</button><input id="homepageIconFile" type="file" accept="image/*" hidden>
     <button id="homepageRemoveIcon" type="button" class="danger hidden">Remove Icon</button>
@@ -54,9 +55,12 @@
   <label id="homepageItemDestinationRow" class="hidden">Link Destination<select id="homepageItemDestination"><option value="auto">Automatically match the link title</option><option value="admin portal">Admin Portal Overview card</option><option value="mobile application">Mobile Applications card</option><option value="fedex location">FedEx Locations card</option><option value="fmcsa">FMCSA card</option><option value="weather">Weather card</option><option value="traffic">Traffic card</option><option value="documents">Documents section</option><option value="custom">Custom web address</option></select></label>
   <label id="homepageItemUrlRow">Link Address<input id="homepageItemUrl" maxlength="1000" placeholder="https://... or #section"></label>
   <label id="homepageItemLinkLabelRow">Link Button Text<input id="homepageItemLinkLabel" maxlength="100"></label>
+  <div id="homepageAdditionalLinks" class="homepage-link-rows"></div><button id="homepageAddAnotherLink" type="button">Add Another Link</button>
   <label class="check-row"><input id="homepageItemNewTab" type="checkbox"> Open link in a new window</label>
   <p id="homepageItemMsg"></p><div class="actions"><button id="cancelHomepageItem" type="button">Cancel</button><button class="primary" type="submit">Add to Page</button></div>
 </form></dialog>
+
+<dialog id="homepageLinksDialog"><form id="homepageLinksForm"><h3>Manage Card Links</h3><p>Add, edit, or remove the links shown inside this card.</p><div id="homepageLinksRows" class="homepage-link-rows"></div><button id="homepageLinksAdd" type="button">Add Another Link</button><p id="homepageLinksMsg"></p><div class="actions"><button id="homepageLinksCancel" type="button">Cancel</button><button class="primary" type="submit">Save Links</button></div></form></dialog>
 
 <section id="settings" class="view hidden"><div class="card"><h2>Company Settings</h2><div class="settings-grid"><label>Company Name<input id="companyName" disabled></label><label>Company Code<input id="companyCode" disabled></label><label>Driver App Refresh (hours)<input id="driverEntryRetentionHours" type="number" min="1" max="720" step="1" required><small>Completed entries are removed from the driver’s device after this many hours. Changes sync when the driver next logs in.</small></label><label>Street *<input id="addressStreet" maxlength="150"></label><label>Suite (optional)<input id="addressSuite" maxlength="80"></label><label>City *<input id="addressCity" maxlength="100"></label><label>State *<input id="addressState" maxlength="2"></label><label>ZIP *<input id="addressZip" maxlength="10" inputmode="numeric"></label><label>Primary Contact<input id="contactName"></label><label>Contact Email<input id="contactEmail" type="email"></label><label>Contact Phone<input id="contactPhone" type="tel"></label><label class="wide">End-of-Shift Reports Drive Folder ID<input id="driveFolder"></label><label class="wide">Employee Documents Drive Folder ID<input id="documentsFolderId" value="1PvSYuLM7gibeFe92pq3GljuW6NofNAp-"></label><label id="legalFolderSetting" class="wide hidden">Legal Documents Drive Folder ID (Super Admin only)<input id="legalFolderId"></label><label class="wide">Notes <span id="settingsNotesCount">0 / 750</span><textarea id="companyNotes" rows="5" maxlength="750"></textarea></label></div><div class="logo-settings"><h3>Company Logo</h3><p>Enter a hosted image address and adjust the size of the complete logo tile.</p><label>Logo URL<input id="logoUrl" type="url" placeholder="https://..."></label><label>Logo Tile Size <output id="logoScaleValue">100%</output><input id="logoScale" type="range" min="50" max="100" value="100"></label></div><button id="saveSettings" class="primary">Save Company Settings</button><p id="settingsMsg"></p></div></section></main></div>
 
@@ -72,6 +76,7 @@
 <link rel="stylesheet" href="./message-replies.css?v=20260905-message-replies-1">
 <link rel="stylesheet" href="./messages-visible-list.css?v=20260905-visible-recipients-1">
 <link rel="stylesheet" href="./icon-picker.css?v=20260905-icon-picker-1">
+<link rel="stylesheet" href="./card-links.css?v=20260905-card-links-1">
 <link rel="stylesheet" href="./homepage-editor.css?v=20260905-freeform-editor-16"><style>#homepageCanvas{display:block!important;transform-origin:top left}#homepageItemChooseIcon{margin-top:8px}#homepageItemIconName{display:block;margin-top:5px;color:#526276}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script><script src="./config.js?v=20260725-live-2"></script>
 <script src="./app.js?v=20260814-exclude-testers-1"></script>
@@ -79,7 +84,7 @@
 <script src="./important-links.js?v=20260812-important-links-1"></script>
 <script src="./recipients-delete.js?v=20260828-recipient-actions-2"></script>
 <script src="./records.js?v=20260828-dispatch-log-5"></script>
-<script src="./homepage-editor.js?v=20260905-link-destinations-1"></script>
+<script src="./homepage-editor.js?v=20260905-card-links-1"></script>
 <script src="./messages.js?v=20260905-recipient-groups-2"></script>
 <script src="./message-replies.js?v=20260905-selective-delete-1"></script>
 <script src="./icon-picker.js?v=20260905-icon-picker-1"></script>
