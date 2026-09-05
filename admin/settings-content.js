@@ -29,9 +29,18 @@
     controls.className = 'dashboard-controls';
     controls.innerHTML = '<button id="customizeDashboard" type="button">Customize Dashboard</button><button id="resetDashboard" type="button">Reset Layout</button><small>Choose Customize Dashboard, then drag cards or use − / + to change their size. This affects only the admin dashboard.</small>';
     stats.before(controls);
-    let editing = false, key = 'fp365_admin_dashboard_layout';
+    let editing = false, key = '', restored = false;
     const cards = [...stats.children].filter(x => !x.classList.contains('hidden'));
-    context().then(({profile:p}) => { key += `_${p.id}`; restore(); });
+    async function ensureLayoutStorage() {
+      if (key) return;
+      const {profile:p} = await context();
+      key = `fp365_admin_dashboard_layout_${p.id}`;
+      if (!localStorage.getItem(key)) {
+        const olderLayout = localStorage.getItem('fp365_admin_dashboard_layout');
+        if (olderLayout) localStorage.setItem(key, olderLayout);
+      }
+      restore();
+    }
     cards.forEach((card, index) => {
       card.dataset.widget = card.querySelector('strong')?.id || String(index);
       card.dataset.size = 'small';
@@ -60,27 +69,33 @@
     });
     function saveLayout() {
       const value = [...stats.children].filter(x => !x.classList.contains('hidden')).map(x => ({id:x.dataset.widget,size:x.dataset.size || 'small'}));
-      localStorage.setItem(key, JSON.stringify(value));
+      if (key) localStorage.setItem(key, JSON.stringify(value));
+      else ensureLayoutStorage().then(() => localStorage.setItem(key, JSON.stringify(value))).catch(console.error);
     }
     function restore() {
+      if (!key || restored) return;
       try {
         const saved = JSON.parse(localStorage.getItem(key) || '[]');
         saved.forEach(item => {
           const card = cards.find(x => x.dataset.widget === item.id);
           if (card) { card.dataset.size = item.size || 'small'; stats.appendChild(card); }
         });
-      } catch (_) {}
+        restored = true;
+      } catch (_) { restored = true; }
     }
-    $('customizeDashboard').onclick = () => {
+    $('customizeDashboard').onclick = async () => {
+      try { await ensureLayoutStorage(); } catch (error) { console.error(error); }
       editing = !editing;
       stats.classList.toggle('customizing', editing);
       $('customizeDashboard').textContent = editing ? 'Finish Customizing' : 'Customize Dashboard';
       if (!editing) saveLayout();
     };
     $('resetDashboard').onclick = () => {
-      localStorage.removeItem(key);
+      if (key) localStorage.removeItem(key);
       cards.forEach(card => { card.dataset.size = 'small'; stats.appendChild(card); });
+      saveLayout();
     };
+    ensureLayoutStorage().catch(() => {});
   }
 
   function daysUntilExpiration(value) {
@@ -384,6 +399,27 @@
     await loadContent('fmcsa');
   }
   function targetFor(type){return type.startsWith('question_')?'questionsList':`${type}List`;}
+  function parseQuestionCsv(text){
+    const rows=[];let row=[],field='',quoted=false;
+    for(let i=0;i<text.length;i++){const char=text[i];if(quoted){if(char==='"'&&text[i+1]==='"'){field+='"';i++;}else if(char==='"')quoted=false;else field+=char;}else if(char==='"')quoted=true;else if(char===','){row.push(field);field='';}else if(char==='\n'){row.push(field);rows.push(row);row=[];field='';}else if(char!=='\r')field+=char;}
+    if(field||row.length){row.push(field);rows.push(row);}return rows;
+  }
+  function uploadedQuestionType(value){const type=String(value||'').trim().toLowerCase().replace(/[_\s]+/g,'-');if(['pre','pre-trip','pretrip','question-pre'].includes(type))return'question_pre';if(['post','end','end-of-shift','end-shift','checklist','question-post'].includes(type))return'question_post';if(['final','final-review','review','question-final'].includes(type))return'question_final';return questionType;}
+  function addQuestionUploader(){
+    const head=document.querySelector('#questions .head');if(!head||$('uploadQuestions'))return;
+    const add=head.querySelector('.add-content'),actions=document.createElement('div');actions.className='head-actions';
+    actions.innerHTML='<button id="uploadQuestions" type="button">Upload Questions</button><input id="questionsUploadFile" type="file" accept=".csv,.txt,text/csv,text/plain" hidden>';
+    if(add)actions.appendChild(add);head.appendChild(actions);const message=document.createElement('p');message.id='questionsUploadMsg';head.after(message);
+    $('uploadQuestions').onclick=()=>$('questionsUploadFile').click();$('questionsUploadFile').onchange=event=>uploadQuestions(event.target.files?.[0]);
+  }
+  async function uploadQuestions(file){
+    const message=$('questionsUploadMsg');try{if(!file)return;message.textContent='Uploading questions…';const text=await file.text(),isCsv=/\.csv$/i.test(file.name),parsed=isCsv?parseQuestionCsv(text):text.split(/\r?\n/).map(line=>[line]);if(!parsed.length)throw new Error('The selected file is empty.');
+      let rows=parsed,columns={question:0,type:-1,description:-1,order:-1,active:-1};if(isCsv){const header=parsed[0].map(value=>String(value).trim().toLowerCase()),questionIndex=header.findIndex(value=>['question','title','custom question'].includes(value));if(questionIndex>=0){columns={question:questionIndex,type:header.findIndex(value=>['type','section','phase'].includes(value)),description:header.findIndex(value=>['description','notes'].includes(value)),order:header.findIndex(value=>['order','display order','sort order'].includes(value)),active:header.indexOf('active')};rows=parsed.slice(1);}}
+      const {profile:p,company:co}=await context(),{data:existing,error:existingError}=await s.from('company_content').select('content_type,sort_order').eq('company_id',co.id).in('content_type',['question_pre','question_post','question_final']);if(existingError)throw existingError;const nextOrder={question_pre:0,question_post:0,question_final:0};(existing||[]).forEach(item=>nextOrder[item.content_type]=Math.max(nextOrder[item.content_type],Number(item.sort_order)||0));const now=new Date().toISOString();
+      const records=rows.map(row=>{const title=String(row[columns.question]||'').trim();if(!title)return null;const type=columns.type>=0?uploadedQuestionType(row[columns.type]):questionType,suppliedOrder=columns.order>=0?Number(row[columns.order]):NaN,activeValue=columns.active>=0?String(row[columns.active]).trim().toLowerCase():'';return{company_id:co.id,content_type:type,title:title.slice(0,300),body:columns.description>=0?String(row[columns.description]||'').trim().slice(0,1000)||null:null,url:null,sort_order:Number.isFinite(suppliedOrder)?suppliedOrder:++nextOrder[type],active:!['false','no','0','inactive'].includes(activeValue),created_by:p.id,updated_by:p.id,created_at:now,updated_at:now};}).filter(Boolean);
+      if(!records.length)throw new Error('No questions were found. Use one question per line, or a CSV with a Question column.');if(records.length>250)throw new Error('Upload no more than 250 questions at one time.');const {error}=await s.from('company_content').insert(records);if(error)throw error;message.textContent=`${records.length} custom question${records.length===1?'':'s'} uploaded.`;await loadContent('questions');
+    }catch(error){message.textContent=error.message;}finally{if($('questionsUploadFile'))$('questionsUploadFile').value='';}
+  }
   function driveFolderUrl(id){return id?`https://drive.google.com/drive/folders/${encodeURIComponent(id)}`:'';}
   function updateFolderLinks(){
     const docs=$('documentsFolderLink'),legal=$('legalFolderLink');
@@ -460,7 +496,7 @@
     label.innerHTML = 'Replace Logo Image<input id="logoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">';
     url.closest('label')?.after(label);
   }
-  addDashboardControls(); addLogoFilePicker(); wireNavigation();
+  addDashboardControls(); addLogoFilePicker(); addQuestionUploader(); wireNavigation();
   $('expirationNearCard')?.addEventListener('click',openExpirationAlerts);
   $('expirationNearCard')?.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpirationAlerts();}});
   $('closeExpirationNear')?.addEventListener('click',()=>$('expirationNearDialog').close());
