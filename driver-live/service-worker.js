@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.11.2-delivery-fix-1";
+const CACHE_NAME = "fp365-driver-v1.11.3-popup-behavior-1";
 
 const APP_FILES = [
   "./",
