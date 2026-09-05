@@ -51,7 +51,8 @@
   <label>Title *<input id="homepageItemTitle" required maxlength="180"></label>
   <label id="homepageItemBodyRow">Description<textarea id="homepageItemBody" rows="4" maxlength="3000"></textarea></label>
   <label id="homepageItemIconRow">Icon<input id="homepageItemIcon" maxlength="20" placeholder="Optional symbol or emoji"><button id="homepageItemChooseIcon" type="button">Choose Icon Image</button><input id="homepageItemIconFile" type="file" accept="image/*" hidden><small id="homepageItemIconName">No image selected</small></label>
-  <label>Link Address<input id="homepageItemUrl" maxlength="1000" placeholder="https://... or #section"></label>
+  <label id="homepageItemDestinationRow" class="hidden">Link Destination<select id="homepageItemDestination"><option value="auto">Automatically match the link title</option><option value="admin portal">Admin Portal Overview card</option><option value="mobile application">Mobile Applications card</option><option value="fedex location">FedEx Locations card</option><option value="fmcsa">FMCSA card</option><option value="weather">Weather section</option><option value="documents">Documents section</option><option value="custom">Custom web address</option></select></label>
+  <label id="homepageItemUrlRow">Link Address<input id="homepageItemUrl" maxlength="1000" placeholder="https://... or #section"></label>
   <label id="homepageItemLinkLabelRow">Link Button Text<input id="homepageItemLinkLabel" maxlength="100"></label>
   <label class="check-row"><input id="homepageItemNewTab" type="checkbox"> Open link in a new window</label>
   <p id="homepageItemMsg"></p><div class="actions"><button id="cancelHomepageItem" type="button">Cancel</button><button class="primary" type="submit">Add to Page</button></div>
@@ -77,7 +78,7 @@
 <script src="./important-links.js?v=20260812-important-links-1"></script>
 <script src="./recipients-delete.js?v=20260828-recipient-actions-2"></script>
 <script src="./records.js?v=20260828-dispatch-log-5"></script>
-<script src="./homepage-editor.js?v=20260905-freeform-editor-16"></script>
+<script src="./homepage-editor.js?v=20260905-link-destinations-1"></script>
 <script src="./messages.js?v=20260905-recipient-groups-2"></script>
 <script src="./message-replies.js?v=20260905-selective-delete-1"></script>
 </body></html>
