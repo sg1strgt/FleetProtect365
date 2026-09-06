@@ -16,7 +16,7 @@
   function undo(){if(!undoStack.length)return;items=undoStack.pop();updateUndo();markDirty('Last homepage change undone. Publish when ready.');renderCanvas();}
   function styleKey(item,field,kind){if(field.startsWith('static__'))return`${field}_${kind}`;if(item.item_type==='card'&&field==='title')return`title_${kind}`;if(item.item_type==='card'&&field==='body')return`body_${kind}`;return kind;}
   function selectNode(node){
-    const card=node?.closest?.('[data-home-section]'),id=node?.dataset.homeId||card?.dataset.homeId,item=findItem(id);if(!item)return;
+    const card=node?.closest?.('[data-home-section]'),id=node?.dataset.homeId||card?.dataset.homeId,item=findItem(id);if(!item)return;if(item.style_data?.display_mode==='photo'&&card)node=card;
     selectedNode=node;selectedItem=item;const toolbar=$('homepageTextToolbar');toolbar.classList.remove('hidden');
     $('homepageDeleteItem').disabled=false;
     const field=node.dataset.homeField||'',textSelected=!!field,keySize=styleKey(item,field,'font_size'),keyColor=styleKey(item,field,'color'),computed=node.ownerDocument.defaultView.getComputedStyle(node);
