@@ -7,7 +7,7 @@
     <div class="homepage-publish-actions"><button id="undoHomepage" type="button" disabled>Undo</button><button id="publishHomepage" class="primary" type="button">Publish Changes</button><a href="../" target="_blank" rel="noopener">Open Live Site</a></div>
   </div>
   <div class="homepage-visual-toolbar" aria-label="Homepage editing tools">
-    <button id="addHomepageCard" type="button">+ Add Card or Link</button>
+    <button id="addHomepageCard" type="button">+ Add Card, Text, Photo, or Link</button>
     <span class="toolbar-separator"></span>
     <button type="button" data-canvas-size="desktop" class="active">Computer</button>
     <button type="button" data-canvas-size="tablet">Tablet</button>
@@ -18,16 +18,22 @@
     <strong id="homepageZoomValue">100%</strong>
     <button id="homepageZoomIn" type="button" aria-label="Zoom in">+</button>
     <button id="homepageShortenPage" type="button">Shorten Page</button>
+    <button id="homepageSnapGrid" type="button" aria-pressed="false">Snap to Grid: Off</button>
     <span class="toolbar-help">Select one element · Type to edit · Use its purple controls to move or resize</span>
   </div>
   <div id="homepageTextToolbar" class="homepage-text-toolbar hidden">
     <strong id="homepageSelectionLabel">Selected text</strong>
     <label>Size <input id="homepageFontSize" type="number" min="10" max="120" step="1"></label>
     <label>Color <input id="homepageFontColor" type="color" value="#ffffff"></label>
+    <button id="homepageBold" type="button" aria-pressed="false"><b>Bold</b></button>
+    <button id="homepageItalic" type="button" aria-pressed="false"><i>Italic</i></button>
+    <button id="homepageBullets" type="button">• Bullets</button>
+    <button id="homepageNumbering" type="button">1. Numbering</button>
     <button id="homepageResetStyle" type="button">Reset Style</button>
     <button id="homepageEditLink" type="button" class="hidden">Edit Link</button>
     <button id="homepageManageLinks" type="button" class="hidden">Manage Card Links</button>
     <button id="homepageEditIcon" type="button" class="hidden">Add Icon</button>
+    <button id="homepageIconLibrary" type="button" class="hidden">Icon Library</button>
     <button id="homepageUploadIcon" type="button" class="hidden">Upload Icon</button><input id="homepageIconFile" type="file" accept="image/*" hidden>
     <button id="homepageRemoveIcon" type="button" class="danger hidden">Remove Icon</button>
     <button id="homepageBringFront" type="button" class="hidden">Bring to Front</button>
@@ -38,7 +44,7 @@
   </div>
   <p id="homepageMsg" role="status"></p>
   <div id="homepageCanvasShell" class="homepage-canvas-shell desktop">
-    <iframe id="homepageCanvas" title="Editable Fleet Protect 365 homepage" src="../?visualEditor=1&amp;v=20260906-clean-layout-1"></iframe>
+    <iframe id="homepageCanvas" title="Editable Fleet Protect 365 homepage" src="../?visualEditor=1&amp;v=20260906-blank-editor-1"></iframe>
   </div>
   <div class="homepage-version-row">
     <label>Previous Published Versions<select id="homepageVersion"><option value="">Choose a previous version</option></select></label>
@@ -48,9 +54,9 @@
 
 <dialog id="homepageItemDialog"><form id="homepageItemForm">
   <h3 id="homepageItemDialogTitle">Add Homepage Item</h3><input id="homepageItemId" type="hidden">
-  <label>Item Type<select id="homepageItemType"><option value="card">Card</option><option value="link">Navigation Link</option></select></label>
+  <label>Item Type<select id="homepageItemType"><option value="card">Card</option><option value="text">Text</option><option value="photo">Photo</option><option value="link">Navigation Link</option></select></label>
   <label>Section<select id="homepageItemSection"><option value="resources">Resource Cards</option><option value="dashboard">Dashboard Cards</option><option value="mobile">Mobile / Access Cards</option><option value="documents">Document Cards</option></select></label>
-  <label>Title *<input id="homepageItemTitle" required maxlength="180"></label>
+  <label id="homepageItemTitleRow">Title *<input id="homepageItemTitle" required maxlength="180"></label>
   <label id="homepageItemBodyRow">Description<textarea id="homepageItemBody" rows="4" maxlength="3000"></textarea></label>
   <label id="homepageItemIconRow">Icon<input id="homepageItemIcon" maxlength="20" placeholder="Optional symbol or emoji"><button id="homepageItemChooseIcon" type="button">Choose Icon Image</button><input id="homepageItemIconFile" type="file" accept="image/*" hidden><small id="homepageItemIconName">No image selected</small></label>
   <label id="homepageItemDestinationRow" class="hidden">Link Destination<select id="homepageItemDestination"><option value="auto">Automatically match the link title</option><option value="admin portal">Admin Portal Overview card</option><option value="mobile application">Mobile Applications card</option><option value="fedex location">FedEx Locations card</option><option value="fmcsa">FMCSA card</option><option value="weather">Weather card</option><option value="traffic">Traffic card</option><option value="documents">Documents section</option><option value="custom">Custom web address</option></select></label>
@@ -62,6 +68,8 @@
 </form></dialog>
 
 <dialog id="homepageLinksDialog"><form id="homepageLinksForm"><h3>Manage Card Links</h3><p>Add, edit, or remove the links shown inside this card.</p><div id="homepageLinksRows" class="homepage-link-rows"></div><button id="homepageLinksAdd" type="button">Add Another Link</button><p id="homepageLinksMsg"></p><div class="actions"><button id="homepageLinksCancel" type="button">Cancel</button><button class="primary" type="submit">Save Links</button></div></form></dialog>
+
+<dialog id="homepageIconDialog"><form method="dialog"><h3>Choose an Icon or Symbol</h3><p>Select one, or use Upload Icon for your own image.</p><div id="homepageIconChoices" class="homepage-icon-choices"></div><div class="actions"><button type="submit">Cancel</button></div></form></dialog>
 
 <section id="settings" class="view hidden"><div class="card"><h2>Company Settings</h2><div class="settings-grid"><label>Company Name<input id="companyName" disabled></label><label>Company Code<input id="companyCode" disabled></label><label>Driver App Refresh (hours)<input id="driverEntryRetentionHours" type="number" min="1" max="720" step="1" required><small>Completed entries are removed from the driver’s device after this many hours. Changes sync when the driver next logs in.</small></label><label>Street *<input id="addressStreet" maxlength="150"></label><label>Suite (optional)<input id="addressSuite" maxlength="80"></label><label>City *<input id="addressCity" maxlength="100"></label><label>State *<input id="addressState" maxlength="2"></label><label>ZIP *<input id="addressZip" maxlength="10" inputmode="numeric"></label><label>Primary Contact<input id="contactName"></label><label>Contact Email<input id="contactEmail" type="email"></label><label>Contact Phone<input id="contactPhone" type="tel"></label><label class="wide">End-of-Shift Reports Drive Folder ID<input id="driveFolder"></label><label class="wide">Employee Documents Drive Folder ID<input id="documentsFolderId" value="1PvSYuLM7gibeFe92pq3GljuW6NofNAp-"></label><label id="legalFolderSetting" class="wide hidden">Legal Documents Drive Folder ID (Super Admin only)<input id="legalFolderId"></label><label class="wide">Notes <span id="settingsNotesCount">0 / 750</span><textarea id="companyNotes" rows="5" maxlength="750"></textarea></label></div><div class="logo-settings"><h3>Company Logo</h3><p>Enter a hosted image address and adjust the size of the complete logo tile.</p><label>Logo URL<input id="logoUrl" type="url" placeholder="https://..."></label><label>Logo Tile Size <output id="logoScaleValue">100%</output><input id="logoScale" type="range" min="50" max="100" value="100"></label></div><button id="saveSettings" class="primary">Save Company Settings</button><p id="settingsMsg"></p></div></section></main></div>
 
@@ -78,14 +86,14 @@
 <link rel="stylesheet" href="./messages-visible-list.css?v=20260905-visible-recipients-1">
 <link rel="stylesheet" href="./icon-picker.css?v=20260905-icon-picker-1">
 <link rel="stylesheet" href="./card-links.css?v=20260905-card-links-1">
-<link rel="stylesheet" href="./homepage-editor.css?v=20260905-freeform-editor-16"><style>#homepageCanvas{display:block!important;transform-origin:top left}#homepageItemChooseIcon{margin-top:8px}#homepageItemIconName{display:block;margin-top:5px;color:#526276}</style>
+<link rel="stylesheet" href="./homepage-editor.css?v=20260906-blank-editor-1"><style>#homepageCanvas{display:block!important;transform-origin:top left}#homepageItemChooseIcon{margin-top:8px}#homepageItemIconName{display:block;margin-top:5px;color:#526276}.homepage-text-toolbar button.active,#homepageSnapGrid.active{background:#6d3df0;color:#fff;border-color:#6d3df0}.homepage-icon-choices{display:grid;grid-template-columns:repeat(8,44px);gap:8;max-height:360px;overflow:auto;margin:14px 0}.homepage-icon-choices button{font-size:24px;min-height:42px;padding:5px}</style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script><script src="./config.js?v=20260725-live-2"></script>
 <script src="./app.js?v=20260814-exclude-testers-1"></script>
 <script src="./credentials.js?v=20260803-expiration-alerts-1"></script><script src="./trucks.js?v=20260803-expiration-alerts-1"></script><script src="./dispatch-delays.js?v=20260725-live-2"></script><script src="./inspection-viewer.js?v=20260803-flag-resolution-1"></script><script src="./reports.js?v=20260801-report-filters-1"></script><script src="./recipients.js?v=20260730-recipients-1"></script><script src="./labels.js?v=20260730-employees-1"></script><script src="./settings-content.js?v=20260905-question-upload-1"></script><script src="./fedex-locations.js?v=20260810-live-admin-6"></script>
 <script src="./important-links.js?v=20260812-important-links-1"></script>
 <script src="./recipients-delete.js?v=20260828-recipient-actions-2"></script>
 <script src="./records.js?v=20260828-dispatch-log-5"></script>
-<script src="./homepage-editor.js?v=20260906-shorten-page-2"></script>
+<script src="./homepage-editor.js?v=20260906-blank-editor-1"></script>
 <script src="./messages.js?v=20260905-recipient-groups-2"></script>
 <script src="./message-replies.js?v=20260905-selective-delete-1"></script>
 <script src="./icon-picker.js?v=20260905-icon-picker-1"></script>
