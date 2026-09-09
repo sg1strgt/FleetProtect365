@@ -1007,7 +1007,7 @@
   function renderEntries() {
     header("My Entries");
     const entries = driverEntries().filter(entry => !state.hiddenEntryKeys.includes(entryViewKey(entry)));
-    main.innerHTML = `<section class="card"><h2>Submitted entries</h2><p class="muted">Swipe left to remove an entry from this device’s list. Submitted inspections and End-of-Shift reports are kept.</p>
+    main.innerHTML = `<section class="card"><h2>Submitted entries</h2>
       ${entries.length ? entries.map(e => `
         <div class="entry-swipe">
         <button type="button" class="entry-remove danger" data-remove-id="${esc(e.id)}" aria-label="Remove entry from View Entries">Remove</button>
