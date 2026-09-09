@@ -69,6 +69,7 @@
     user: readJson("fp365_user", null),
     draft: null,
     entries: [],
+    hiddenEntryKeys: [],
     current: null,
     selectedEntry: null,
     incident: null,
@@ -985,19 +986,65 @@
     return state.entries.filter(entry => entry.employee_id === employeeId);
   }
 
+  function entryViewKey(entry) {
+    return JSON.stringify([entry.employee_id, entry.id]);
+  }
+
+  async function removeEntryFromView(id) {
+    const entry = driverEntries().find(item => item.id === id);
+    if (!entry || !window.confirm("Remove this entry from View Entries on this device? The submitted inspection in Admin Recent Submissions and End-of-Shift reporting will remain unchanged.")) return;
+    const hidden = [...new Set([...state.hiddenEntryKeys, entryViewKey(entry)])];
+    try {
+      // Store only a view preference; never mutate or delete inspection records.
+      await dbSet("hiddenEntryKeys", hidden);
+      state.hiddenEntryKeys = hidden;
+      renderEntries();
+    } catch (error) {
+      showModal("Unable to remove entry", "<p>The entry is still visible. Device storage could not save the change. Please try again.</p>");
+    }
+  }
+
   function renderEntries() {
     header("My Entries");
-    const entries = driverEntries();
-    main.innerHTML = `<section class="card"><h2>Submitted entries</h2>
+    const entries = driverEntries().filter(entry => !state.hiddenEntryKeys.includes(entryViewKey(entry)));
+    main.innerHTML = `<section class="card"><h2>Submitted entries</h2><p class="muted">Swipe left to remove an entry from this device’s list. Submitted inspections and End-of-Shift reports are kept.</p>
       ${entries.length ? entries.map(e => `
+        <div class="entry-swipe">
+        <button type="button" class="entry-remove danger" data-remove-id="${esc(e.id)}" aria-label="Remove entry from View Entries">Remove</button>
         <button class="entry open-entry" data-id="${esc(e.id)}">
           <h3>${esc(equipment[e.type]?.label || e.type)}</h3>
           <p>${esc(e.from)} → ${esc(e.to)}</p>
           <p>Truck ${esc(e.truck)}${e.trailer1 ? ` • Trailer ${esc(e.trailer1)}`:""}</p>
           <p>${new Date(e.submitted_at).toLocaleString()}</p>
           ${e.bypass ? `<span class="badge" style="border-color:var(--danger);color:#ffd5d3">Red flag / bypass</span>`:""}
-        </button>`).join("") : `<p class="muted">No submitted entries yet.</p>`}
+        </button></div>`).join("") : `<p class="muted">No entries to show.</p>`}
       </section>`;
+    document.querySelectorAll(".entry-remove").forEach(button => {
+      button.onclick = () => removeEntryFromView(button.dataset.removeId);
+    });
+    document.querySelectorAll(".entry-swipe").forEach(row => {
+      let start = null;
+      let swiped = false;
+      row.addEventListener("touchstart", event => {
+        const touch = event.touches[0];
+        start = { x: touch.clientX, y: touch.clientY };
+        swiped = false;
+      }, { passive: true });
+      row.addEventListener("touchend", event => {
+        if (!start) return;
+        const touch = event.changedTouches[0];
+        const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+        if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+          row.classList.toggle("revealed", dx < 0);
+          swiped = true;
+        }
+        start = null;
+      }, { passive: true });
+      row.addEventListener("touchcancel", () => { start = null; }, { passive: true });
+      row.addEventListener("click", event => {
+        if (swiped) { event.preventDefault(); event.stopPropagation(); swiped = false; }
+      }, true);
+    });
     document.querySelectorAll(".open-entry").forEach(button => {
       button.onclick = () => {
         state.selectedEntry = entries.find(e => e.id === button.dataset.id) || null;
@@ -1454,6 +1501,7 @@ function renderEndShift() {
     const oldEntries = readJson("fp365_entries", []);
     state.draft = await dbGet("draft", oldDraft);
     state.entries = await dbGet("entries", oldEntries);
+    state.hiddenEntryKeys = await dbGet("hiddenEntryKeys", []);
 
     if (oldDraft && !(await dbGet("draft", null))) await dbSet("draft", oldDraft);
     if (oldEntries.length && !(await dbGet("entries", null))) await dbSet("entries", oldEntries);

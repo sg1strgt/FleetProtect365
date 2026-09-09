@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.11.3-popup-behavior-1";
+const CACHE_NAME = "fp365-driver-v1.11.4-entry-remove-1";
 
 const APP_FILES = [
   "./",
