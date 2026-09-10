@@ -61,3 +61,6 @@ textarea{min-height:120px;resize:vertical}
 .entry-remove{position:absolute;right:0;top:0;bottom:0;width:88px;margin:0}
 .entry-swipe.revealed .open-entry,.entry-swipe:focus-within .open-entry{transform:translateX(-96px)}
 @media(hover:hover){.entry-swipe .open-entry{width:calc(100% - 96px)}.entry-swipe:focus-within .open-entry{transform:none}}
+
+.topbar-leading{display:flex;flex-direction:column;align-items:center;gap:8px;min-height:46px}
+.topbar-leading .hidden{display:none}
