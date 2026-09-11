@@ -15,3 +15,12 @@
 .homepage-visual-editing .home-freeform-layer>[data-home-freeform]{overflow:visible!important}
 .homepage-visual-editing .home-resize-handle{display:none;position:absolute;width:14px;height:14px;border:2px solid #fff;border-radius:4px;background:#8b5cf6;z-index:30;touch-action:none}.homepage-visual-editing .home-selected>.home-resize-handle{display:block}.homepage-visual-editing .home-resize-handle[data-edge="n"]{top:-7px;left:calc(50% - 7px);cursor:ns-resize}.homepage-visual-editing .home-resize-handle[data-edge="s"]{bottom:-7px;left:calc(50% - 7px);cursor:ns-resize}.homepage-visual-editing .home-resize-handle[data-edge="e"]{right:-7px;top:calc(50% - 7px);cursor:ew-resize}.homepage-visual-editing .home-resize-handle[data-edge="w"]{left:-7px;top:calc(50% - 7px);cursor:ew-resize}.homepage-visual-editing .home-resize-handle[data-edge="ne"]{right:-7px;top:-7px;cursor:nesw-resize}.homepage-visual-editing .home-resize-handle[data-edge="nw"]{left:-7px;top:-7px;cursor:nwse-resize}.homepage-visual-editing .home-resize-handle[data-edge="se"]{right:-7px;bottom:-7px;cursor:nwse-resize}.homepage-visual-editing .home-resize-handle[data-edge="sw"]{left:-7px;bottom:-7px;cursor:nesw-resize}
 .homepage-visual-editing .home-drag-handle{display:none;position:absolute;top:6px;right:7px;z-index:25;padding:4px 7px;border-radius:5px;background:#8b5cf6;color:#fff;font:800 11px/1 Arial;cursor:grab;touch-action:none;user-select:none}.homepage-visual-editing .home-selected>.home-drag-handle{display:block}
+
+/* Published cards keep their saved geometry without visible containers. */
+html:not(.homepage-visual-editing) .page :is([data-home-section],.card,.tile,.feature,.feature-strip,.overview,.side){
+  border-color:transparent!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+/* Match the editor's text flow: no independently scrolling text boxes. */
+html:not(.homepage-visual-editing) .home-freeform-layer>[data-home-freeform]{overflow:visible!important}
