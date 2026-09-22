@@ -11,3 +11,5 @@
 .dispatch-log-footer{display:flex;justify-content:flex-end;padding-top:12px}.dispatch-log-footer button{min-width:150px}.dispatch-log-actions b{display:block;width:100%}
 @media(min-width:901px){[data-record-card="dispatchlog"] th:nth-child(3),[data-record-card="dispatchlog"] td:nth-child(3){width:124px;min-width:124px}[data-record-card="dispatchlog"] th:nth-child(7),[data-record-card="dispatchlog"] td:nth-child(7){width:116px;min-width:116px}.dispatch-log-actions{display:grid;grid-template-columns:1fr;align-items:stretch}.dispatch-log-actions button{width:100%}}
 @media(max-width:900px){.dispatch-log-actions{grid-template-columns:1fr 1fr}.dispatch-log-footer button{width:100%;min-height:44px}}
+
+.record-dialog .daily-add-actions{display:flex;flex-wrap:nowrap;gap:10px;justify-content:flex-start}.record-dialog .daily-add-actions button{flex:0 0 auto;width:auto;padding:10px 18px}
