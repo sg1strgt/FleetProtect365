@@ -123,10 +123,12 @@ body.fedex-driver-open{overflow:hidden}.fedex-resource-launch{width:100%;text-al
 const profile={id:'demo-driver',company_id:'demo-company',employee_id:'9000001',full_name:'Joe Public',display_name:'Joe Public',email:'driver@example.com',role:'driver'};
 let session=null,acknowledged=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function downloadReport(payload,kind){
+function downloadReport(payload,kind,preview=false){
  const entries=payload.entries||[];
  const html='<!doctype html><meta charset="utf-8"><title>Demo '+kind+'</title><style>body{font:16px system-ui;max-width:850px;margin:40px auto}article{break-inside:avoid;border-bottom:1px solid #ccc;padding:20px 0}img{max-width:220px}pre{white-space:pre-wrap}</style><h1>DEMO — '+kind+'</h1><p>Sample data only. Not submitted, emailed, or archived.</p><p>Driver: '+esc(profile.full_name)+'</p>'+ (entries.length?entries.map(e=>'<article><h2>'+esc(e.inspection_number||'Demo inspection')+'</h2><p>'+esc(e.submitted_at)+'</p><p>Truck '+esc(e.truck)+' · '+esc(e.from)+' → '+esc(e.to)+'</p><p>'+esc(e.notes)+'</p>'+Object.values(e.photos||{}).map(p=>'<img src="'+p.data_url+'">').join('')+'</article>').join(''):'<pre>'+esc(JSON.stringify(payload.details||payload,null,2))+'</pre>');
- const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='DEMO-'+kind.replaceAll(' ','-')+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ const url=URL.createObjectURL(new Blob([html],{type:'text/html'}));
+ if(preview)return url;
+ const a=document.createElement('a');a.href=url;a.download='DEMO-'+kind.replaceAll(' ','-')+'.html';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 const client={
  auth:{getSession:async()=>({data:{session}}),setSession:async()=>{session={user:{id:profile.id}};return {data:{session}}},signOut:async()=>{session=null;return {}}},
@@ -135,7 +137,7 @@ const client={
  functions:{invoke:async(name,{body}={})=>{
  if(name==='driver-auth')return {data:{ok:true,profile,accessToken:'demo',refreshToken:'demo',mustChangePassword:false}};
  if(name==='sync-inspection')return {data:{ok:true,inspection_number:'DEMO-'+(body.entry.id||'PHOTO').slice(-6)}};
- if(name==='send-end-shift')downloadReport(body,'End of Shift');
+ if(name==='send-end-shift')return {data:{ok:true,report_id:'DEMO-REPORT',report_url:downloadReport(body,'End of Shift',true)}};
  if(name==='send-incident-report')downloadReport(body,'Incident Report');
  if(['send-end-shift','send-incident-report','send-feedback'].includes(name))return {data:{ok:true,report_id:'DEMO-REPORT'}};
  return {error:new Error('This demo action is unavailable.')};
@@ -1476,6 +1478,16 @@ function renderEndShift() {
       if (!todayEntries.length) return showModal("No inspections found", "<p>There are no submitted inspections for today.</p>");
       if (!supabaseClient) return showModal("Email not configured", "<p>Supabase is not configured in config.js.</p>");
 
+      // Reserve the report tab during the tap, before asynchronous inspection syncing.
+      const reportWindow = window.open("about:blank", "_blank");
+      if (!reportWindow) {
+        return showModal("Allow the report tab", "<p>Please allow pop-ups for this demo, then tap End of Shift again. Your shift has not been completed.</p>");
+      }
+      reportWindow.opener = null;
+      reportWindow.document.title = "Preparing End-of-Shift report";
+      reportWindow.document.body.textContent = "Preparing your End-of-Shift report…";
+      let reportUrl;
+
       const button = document.getElementById("finishShift");
       button.disabled = true;
       button.textContent = "Creating demo report…";
@@ -1511,6 +1523,11 @@ function renderEndShift() {
         if (error) throw error;
         if (!data?.ok) throw new Error(data?.error || "The report email was not confirmed.");
 
+        reportUrl = data.report_url;
+        if (!reportUrl) throw new Error("The demo report could not be opened. Please try again.");
+        if (reportWindow.closed) throw new Error("The report tab was closed. Please try again and leave it open.");
+        reportWindow.location.replace(reportUrl);
+
         const confirmedAt = new Date().toISOString();
         todayEntries.forEach((entry) => {
           entry.end_shift_email_confirmed_at = confirmedAt;
@@ -1518,8 +1535,8 @@ function renderEndShift() {
         await dbSet("entries", state.entries);
 
         showModal(
-          "Demo report downloaded",
-          `<p>Your printable demo End-of-Shift report containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was downloaded. Open it and use Print to save as PDF. Nothing was emailed.</p><p>Have a good night.</p>`
+          "Demo report opened",
+          `<p>Your printable demo End-of-Shift report containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} opened in a new browser tab. Use Print in that tab to save as PDF. Nothing was emailed.</p><p>Have a good night.</p>`
         );
         await supabaseClient.auth.signOut();
         localStorage.removeItem("fp365_user");
@@ -1528,6 +1545,7 @@ function renderEndShift() {
         state.screen = "login";
         setTimeout(render, 500);
       } catch (err) {
+        if (!reportUrl && !reportWindow.closed) reportWindow.close();
         button.disabled = false;
         button.textContent = "Create Demo Report and Complete End of Shift";
         showModal(
