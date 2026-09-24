@@ -196,7 +196,7 @@
   function legsFields(legs=[]){const rows=[0,1,2].map(i=>`<div class="record-leg ${i===2&&!legs[i]?'hidden':''}" data-leg="${i}"><label>Location From *<input inputmode="numeric" pattern="[0-9]*" maxlength="10" value="${esc(legs[i]?.from||'')}"></label><label>Location To *<input inputmode="numeric" pattern="[0-9]*" maxlength="10" value="${esc(legs[i]?.to||'')}"></label>${i===2?'<button type="button" data-remove-leg>Remove Third Leg</button>':''}</div>`).join('');return `${rows}<button id="addThirdLeg" type="button">Add Third Leg</button>`;}
   function openEditor(type,row=null,reset=false){
     ensureDialog();$('recordType').value=type;$('recordId').value=row?.id||'';$('recordDialogTitle').textContent=`${row?.id?'Edit':'Add'} ${definitions[type].title}`;$('recordFormMsg').textContent='';
-    const actions=$('recordForm').querySelector('.actions'),compact=type==='daily'&&!row?.id;
+    const actions=$('recordForm').querySelector('.actions'),compact=type==='daily';
     actions.classList.toggle('daily-add-actions',compact);
     actions.innerHTML=type==='daily'?'<button class="primary" type="submit">Save</button><button id="recordCancel" type="button">Cancel</button>':'<button id="recordReset" type="button">Refresh / Clear</button><button id="recordCancel" type="button">Cancel</button><button class="primary" type="submit">Save Record</button>';
     if(type==='daily')$('recordReset')?.remove();
