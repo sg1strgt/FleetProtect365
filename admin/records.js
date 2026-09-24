@@ -199,6 +199,7 @@
     const actions=$('recordForm').querySelector('.actions'),compact=type==='daily'&&!row?.id;
     actions.classList.toggle('daily-add-actions',compact);
     actions.innerHTML=compact?'<button class="primary" type="submit">Save</button><button id="recordCancel" type="button">Cancel</button>':'<button id="recordReset" type="button">Refresh / Clear</button><button id="recordCancel" type="button">Cancel</button><button class="primary" type="submit">Save Record</button>';
+    if(type==='daily')$('recordReset')?.remove();
     $('recordCancel').onclick=closeEditor;
     if($('recordReset'))$('recordReset').onclick=()=>openEditor($('recordType').value,null,true);
     let html='';
