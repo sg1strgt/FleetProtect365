@@ -71,18 +71,50 @@
     section.querySelectorAll('[data-record-filter]').forEach(input=>input.onchange=()=>{if(input.dataset.recordFilter==='timeoff')selectedTimeOffIds.clear();renderAll();});
     section.querySelectorAll('[data-export-record]').forEach(button=>button.onclick=()=>exportRecordPdf(button.dataset.exportRecord));
     section.querySelectorAll('[data-email-record]').forEach(button=>button.onclick=()=>emailRecordPdf(button.dataset.emailRecord));
+    document.querySelectorAll('[data-mileage-action]').forEach(button=>button.onclick=()=>runMileageAction(button));
     ensureDialog();
     restoreOrder();
   }
 
   function card(type,title,description,button,extra=''){
     const action=type==='miles'?'<button type="button" data-refresh-miles>Refresh</button>':`<button type="button" class="primary" data-add-record="${type}">${button}</button>`;
-    const reporting=['callout','timeoff'].includes(type)?reportToolbar(type):'';
+    const reporting=type==='mileage'?mileageToolbar():['callout','timeoff'].includes(type)?reportToolbar(type):'';
     const footer=type==='dispatchlog'?'<div class="dispatch-log-footer"><button type="button" class="primary" data-save-all-dispatch-log>Save All</button></div>':'';
     return `<section class="records-card collapsed" data-record-card="${type}" data-collapse-card="${type}"><button class="records-card-title" type="button" data-toggle-card="${type}" aria-expanded="false"><span>${title}</span><span class="records-chevron" aria-hidden="true">›</span></button><div class="records-card-content"><p class="records-description">${description}</p><div class="records-actions">${extra}${action}<span class="records-move"><button type="button" data-move-card="${type}" data-direction="-1" aria-label="Move ${title} up">↑</button><button type="button" data-move-card="${type}" data-direction="1" aria-label="Move ${title} down">↓</button></span></div>${reporting}<div id="${type}Summary"></div><div class="records-table"><table><thead id="${type}Head"></thead><tbody id="${type}Body"></tbody></table></div><p id="${type}Empty" class="records-empty hidden">No records entered.</p>${footer}</div></section>`;
   }
   function reportToolbar(type){const from=new Date();from.setFullYear(from.getFullYear()-1);const fromIso=from.toISOString().slice(0,10),dateFilters=type==='timeoff'?'':`<label>From<input id="${type}FilterFrom" data-record-filter="${type}" type="date" value="${fromIso}"></label><label>To<input id="${type}FilterTo" data-record-filter="${type}" type="date" value="${today()}"></label>`;return `<div class="records-report-toolbar"><label>Employee<select id="${type}FilterDriver" data-record-filter="${type}"><option value="">All employees</option></select></label>${dateFilters}<button type="button" data-export-record="${type}">Export PDF</button><label>Email To<select id="${type}Recipient"><option value="">Select recipient</option></select></label><button type="button" data-email-record="${type}">Email PDF</button></div>`;}
-  function updateReportFilterOptions(){['callout','timeoff'].forEach(type=>{const driverSelect=$(type+'FilterDriver'),recipientSelect=$(type+'Recipient');if(driverSelect){const selected=driverSelect.value;driverSelect.innerHTML='<option value="">All employees</option>'+drivers.map(x=>`<option value="${x.id}">${esc(x.full_name||x.display_name)}</option>`).join('');driverSelect.value=selected;}if(recipientSelect){const selected=recipientSelect.value;recipientSelect.innerHTML='<option value="">Select recipient</option>'+recipients.map(x=>`<option value="${x.id}">${esc(x.display_name)} — ${esc(x.email)}</option>`).join('');recipientSelect.value=selected;}});}
+  function updateReportFilterOptions(){['callout','timeoff','mileage'].forEach(type=>{const driverSelect=$(type+'FilterDriver'),recipientSelect=$(type+'Recipient');if(driverSelect){const selected=driverSelect.value;driverSelect.innerHTML='<option value="">All employees</option>'+drivers.map(x=>`<option value="${x.id}">${esc(x.full_name||x.display_name)}</option>`).join('');driverSelect.value=selected;}if(recipientSelect){const selected=recipientSelect.value;recipientSelect.innerHTML='<option value="">Select recipient</option>'+recipients.map(x=>`<option value="${x.id}">${esc(x.display_name)} — ${esc(x.email)}</option>`).join('');recipientSelect.value=selected;}});}
+
+  function mileageToolbar(){
+    return `<div class="records-report-toolbar mileage-report-toolbar" aria-label="Location ID Record actions">
+      <button type="button" data-mileage-action="print">Print</button>
+      <label>File format<select id="mileageFormat"><option value="xlsx">Excel (.xlsx)</option><option value="docx">Word (.docx)</option><option value="pdf" selected>PDF (.pdf)</option></select></label>
+      <button type="button" data-mileage-action="export">Export</button>
+      <button type="button" data-mileage-action="download">Download</button>
+      <label>Email To<select id="mileageRecipient"><option value="">Select recipient</option></select></label>
+      <button type="button" data-mileage-action="email">Email</button>
+      <p class="mileage-report-help">Export, Download, and Email use the selected file format and include From, To, and Miles for all routes.</p>
+    </div>`;
+  }
+  async function runMileageAction(button){
+    const action=button.dataset.mileageAction,summary=$('mileageSummary');
+    try{
+      if(action==='print'){window.FP365_LOCATION_REPORT.print(state.mileage);return;}
+      const format=$('mileageFormat').value,recipient=recipients.find(row=>row.id===$('mileageRecipient').value);
+      if(action==='email'&&!recipient)throw Error('Select an email recipient first.');
+      const report=window.FP365_LOCATION_REPORT.build(state.mileage,format);
+      if(action!=='email'){
+        const url=URL.createObjectURL(report.blob),link=document.createElement('a');
+        link.href=url;link.download=report.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);
+        summary.textContent=`${state.mileage.length} routes downloaded as ${format.toUpperCase()}.`;return;
+      }
+      button.disabled=true;summary.textContent=`Sending ${format.toUpperCase()} to ${recipient.email}…`;
+      const attachmentBase64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('The report could not be read.'));reader.readAsDataURL(report.blob);});
+      const {data,error}=await client.functions.invoke('email-record-report',{body:{recipientId:recipient.id,reportType:'mileage',format,fileName:report.fileName,attachmentBase64,recordCount:state.mileage.length}});
+      if(error||!data?.ok)throw Error(data?.error||error?.message||'Unable to email the report.');
+      summary.textContent=`${format.toUpperCase()} emailed to ${recipient.email}.`;
+    }catch(error){summary.textContent=error.message;}finally{button.disabled=false;}
+  }
 
   function saveOrder(){localStorage.setItem(orderKey,JSON.stringify([...document.querySelectorAll('[data-record-card]')].map(card=>card.dataset.recordCard)));}
   function restoreOrder(){try{const order=JSON.parse(localStorage.getItem(orderKey)||'[]'),hub=$('recordsHub');order.forEach(type=>{const card=hub.querySelector(`[data-record-card="${type}"]`);if(card)hub.appendChild(card);});}catch{localStorage.removeItem(orderKey);}}
@@ -208,7 +240,7 @@
     if(type==='timeoff')html=`<div class="record-form-grid">${driverField(row?.driver_profile_id)}<label>Requested From *<input id="recordFromDate" type="date" value="${row?.date_from||today()}" required></label><label>Requested To *<input id="recordToDate" type="date" value="${row?.date_to||today()}" required></label><label class="wide">Comments (optional) <span id="timeOffCommentsCount">${String(row?.comments||'').length} / 500</span><textarea id="recordTimeOffComments" maxlength="500" rows="4">${esc(row?.comments||'')}</textarea></label></div>`;
     if(type==='daily')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${reset?'':(row?.dispatch_date||today())}" required></label>${driverField(reset?'':row?.driver_profile_id)}<label>Run *<input id="recordRun" value="${reset?'':esc(row?.run||'')}" required></label>${timeField('daily','Dispatch Time',reset?'':row?.dispatch_time,false,true)}<label>Truck Number *<select id="recordTruck" required>${truckOptions(reset?'':row?.truck_number||'')}</select></label><label>Notes (optional) <span id="dailyNotesCount">${String(reset?'':row?.notes||'').length} / 500</span><textarea id="recordDailyNotes" maxlength="500" rows="3">${reset?'':esc(row?.notes||'')}</textarea></label></div>`;
     if(type==='dispatchlog')html=`<div class="record-form-grid"><label>Date *<input id="recordDate" type="date" value="${today()}" required></label>${driverField()}<label>Run *<input id="recordRun" required></label>${timeField('dispatchlog','Dispatch Time','',false,true)}<label>Truck Number *<select id="recordTruck" required>${truckOptions()}</select></label><label>Notes (optional) <span id="dailyNotesCount">0 / 500</span><textarea id="recordDailyNotes" maxlength="500" rows="3"></textarea></label></div>`;
-    if(type==='mileage')html=`<div class="record-form-grid"><label>Code From *<input id="recordCodeFrom" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_from||'')}" required></label><label>Name From *<input id="recordNameFrom" value="${esc(row?.name_from||'')}" required></label><label>Code To *<input id="recordCodeTo" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_to||'')}" required></label><label>Name To *<input id="recordNameTo" value="${esc(row?.name_to||'')}" required></label><label>Miles *<input id="recordMiles" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(row?.miles||'')}" required></label></div>`;
+    if(type==='mileage')html=`<div class="record-form-grid"><label>From (Location ID) *<input id="recordCodeFrom" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_from||'')}" required></label><label>Name From *<input id="recordNameFrom" value="${esc(row?.name_from||'')}" required></label><label>To (Location ID) *<input id="recordCodeTo" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="${esc(row?.code_to||'')}" required></label><label>Name To *<input id="recordNameTo" value="${esc(row?.name_to||'')}" required></label><label>Miles *<input id="recordMiles" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(row?.miles??'')}" required></label></div>`;
     $('recordFields').innerHTML=html;$('recordReset')?.classList.toggle('hidden',type!=='daily');
     if(type==='dispatch'){const updateDelay=()=>{const actual=readOptionalTime('actual');$('delayReasonRow').classList.toggle('hidden',!actual||minutes(readTime('scheduled'),actual)<=30);};document.querySelectorAll('[data-time] input,[data-time] select').forEach(x=>x.onchange=()=>{try{updateDelay();}catch{}});$('recordDispatchNotes').oninput=()=>{$('dispatchNotesCount').textContent=`${$('recordDispatchNotes').value.length} / 500`;};$('addThirdLeg').onclick=()=>document.querySelector('[data-leg="2"]').classList.remove('hidden');document.querySelector('[data-remove-leg]').onclick=()=>{const leg=document.querySelector('[data-leg="2"]');leg.querySelectorAll('input').forEach(x=>x.value='');leg.classList.add('hidden');};try{updateDelay();}catch{}}
     if(type==='daily'||type==='dispatchlog'){$('recordDailyNotes').oninput=()=>{$('dailyNotesCount').textContent=`${$('recordDailyNotes').value.length} / 500`;};const timeName=type==='daily'?'daily':'dispatchlog';document.querySelector(`[data-clear-time="${timeName}"]`).onclick=()=>{const group=document.querySelector(`[data-time="${timeName}"]`);group.querySelectorAll('input').forEach(input=>input.value='');group.querySelector('select').value='';};}

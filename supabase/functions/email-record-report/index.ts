@@ -24,10 +24,22 @@ const handleRequest = async (req: Request) => {
     }
     stage = "request";
     const body = await req.json();
-    const reportType = body.reportType === "callout" ? "callout" : body.reportType === "timeoff" ? "timeoff" : "";
-    const pdfBase64 = String(body.pdfBase64 || "");
-    if (!reportType || !body.recipientId || !pdfBase64 || pdfBase64.length > 12_000_000) {
-      return json({ error: "A valid report, PDF, and recipient are required." }, 400);
+    const reportType = ["callout", "timeoff", "mileage"].includes(body.reportType) ? body.reportType : "";
+    // Preserve the original PDF request contract for attendance reports.
+    const format = reportType === "mileage" ? String(body.format || "pdf") : "pdf";
+    const formats: Record<string, string> = {
+      pdf: "application/pdf",
+      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+    const content = String(body.attachmentBase64 || body.pdfBase64 || "");
+    if (!reportType || !body.recipientId || !Object.hasOwn(formats, format) || !content || content.length > 12_000_000 ||
+        content.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(content)) {
+      return json({ error: "A valid report, attachment, and recipient are required." }, 400);
+    }
+    const signature = atob(content.slice(0, 12));
+    if (format === "pdf" ? !signature.startsWith("%PDF-") : !signature.startsWith("PK\x03\x04")) {
+      return json({ error: "The attachment does not match the selected file format." }, 400);
     }
     const client = createClient(supabaseUrl, serviceRoleKey);
     stage = "admin authorization";
@@ -43,8 +55,8 @@ const handleRequest = async (req: Request) => {
       .eq("id", body.recipientId).eq("company_id", profile.company_id).single();
     if (recipientError) throw recipientError;
     if (!recipient.active || recipient.deleted_at) return json({ error: "The selected recipient is inactive." }, 400);
-    const title = reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
-    const fileName = safe(body.fileName, 180) || `FleetProtect365_${reportType}_report.pdf`;
+    const title = reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
+    const fileName = (safe(body.fileName, 170).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]*$/, "") || `FleetProtect365_${reportType}_report`) + `.${format}`;
     const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") || Deno.env.get("RESEND_FROM_EMAIL") ||
       "Fleet Protect 365 <reports@fleetprotect365.com>";
     stage = "email delivery";
@@ -56,11 +68,11 @@ const handleRequest = async (req: Request) => {
         to: [recipient.email],
         subject: `Fleet Protect 365 - ${title}`,
         html: `<h2>Fleet Protect 365</h2><h3>${title}</h3>
-          <p><strong>Employee:</strong> ${safe(body.driverName) || "All employees"}</p>
-          <p><strong>Date range:</strong> ${safe(body.dateFrom) || "All"} through ${safe(body.dateTo) || "All"}</p>
+          ${reportType === "mileage" ? "<p>Location routes: From, To, and Miles.</p>" : `<p><strong>Employee:</strong> ${safe(body.driverName) || "All employees"}</p>
+          <p><strong>Date range:</strong> ${safe(body.dateFrom) || "All"} through ${safe(body.dateTo) || "All"}</p>`}
           <p><strong>Records:</strong> ${Number(body.recordCount || 0)}</p>
-          <p>This PDF was sent by ${safe(profile.full_name) || "an administrator"}.</p>`,
-        attachments: [{ filename: fileName, content: pdfBase64 }],
+          <p>This ${format.toUpperCase()} report was sent by ${safe(profile.full_name) || "an administrator"}.</p>`,
+        attachments: [{ filename: fileName, content, content_type: formats[format] }],
       }),
     });
     const responseText = await response.text();

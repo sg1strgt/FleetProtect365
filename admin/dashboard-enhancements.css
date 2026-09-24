@@ -1,0 +1,11 @@
+#fedex_location .fedex-header-actions{display:grid;grid-template-columns:repeat(2,minmax(110px,1fr));gap:8px}
+.mileage-report-toolbar{align-items:end}.mileage-report-help{flex-basis:100%;margin:0;color:#64748b;font-size:13px}
+#fedexDriverDialog .fedex-driver-body{margin:0 auto;min-height:0;display:block}
+#fedexDriverDialog .fedex-driver-header{margin:0;border-radius:0}
+#fedexDriverDialog label{display:block}
+#fedexDriverDialog .fedex-driver-search input{width:100%;margin:0}
+#fedexDriverDialog .fedex-driver-header small{color:#64748b}
+@media(max-width:600px){#fedex_location>.head{align-items:stretch;flex-direction:column}#fedex_location .fedex-header-actions{width:100%}.mileage-report-toolbar>label{min-width:0;width:100%}}
+.mileage-report-toolbar button{min-height:40px;padding:9px 14px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:#142238;font-weight:700;cursor:pointer}
+.mileage-report-toolbar button:hover{background:#eaf1f9}.mileage-report-toolbar button:disabled{opacity:.6;cursor:wait}
+.mileage-report-toolbar label{margin:0}.mileage-report-toolbar select{margin:0}.mileage-report-toolbar [data-mileage-action="email"]{background:#1f6fd1;border-color:#1f6fd1;color:#fff}
