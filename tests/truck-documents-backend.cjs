@@ -17,7 +17,7 @@ async function test(opts={}){
   if(u.searchParams.get('alt')==='media'||u.pathname.endsWith('/export'))return new Response('document-bytes');
   return Response.json({id:'file-a',name:'registration.pdf',mimeType:opts.mime||'application/pdf',parents:[opts.foreignFile?'other-folder':'folder-a'],trashed:false,properties:{}});
  };
- const context={createClient:()=>db,Deno:{env:{get:()=> 'configured'}},fetch,Request,Response,URL,URLSearchParams,Blob,File,FormData,TextEncoder,crypto,console};vm.createContext(context);vm.runInContext(code,context);
+ const context={createClient:()=>db,Deno:{env:{get:key=> key==='TRUCK_DOCUMENT_COMPANY_FOLDERS'?JSON.stringify(opts.unmapped?{}:{'company-a':'root-a'}):'configured'}},fetch,Request,Response,URL,URLSearchParams,Blob,File,FormData,TextEncoder,crypto,console};vm.createContext(context);vm.runInContext(code,context);
  const fields={action:opts.action||'list',truckId:'truck-a',documentId:opts.action==='save'&&!opts.edit?'': 'file-a',title:'Registration',dateAdded:'2026-10-08',pageToken:'next'};
  let body=JSON.stringify(fields),headers={'Content-Type':'application/json',Authorization:'Bearer test'};
  if(opts.upload){body=new FormData();Object.entries(fields).forEach(([k,v])=>body.set(k,v));body.set('file',new File(['sample'],'reg.pdf',{type:opts.uploadMime||'application/pdf'}));delete headers['Content-Type'];}
@@ -29,7 +29,7 @@ async function test(opts={}){
  let r=await test({noAuth:true});assert.equal(r.status,401);assert.equal(r.calls.length,0);
  for(const o of [{noUser:true},{inactive:true},{role:'driver',action:'save'},{role:'driver',action:'delete'},{foreignTruck:true}]){r=await test(o);assert(r.status>=400);assert.equal(r.calls.length,0);}
  for(const action of ['open','save','delete']){r=await test({action,edit:true,foreignFile:true});assert.equal(r.status,404);assert(!r.calls.some(([,i])=>i.method==='PATCH'));}
- for(const o of [{noFolder:true},{duplicate:true}])assert.equal((await test(o)).status,409);
+ for(const o of [{noFolder:true},{duplicate:true},{unmapped:true}])assert.equal((await test(o)).status,409);
  r=await test({role:'driver'});assert.equal(r.status,200);assert.equal(r.data.nextPageToken,'page-two');assert.equal(r.data.documents[0].title,'registration.pdf');assert(r.calls.some(([u])=>u.includes('pageToken=next')));
  r=await test({action:'open',role:'driver'});assert.equal(r.data,'document-bytes');
  r=await test({action:'save',upload:true});assert.equal(r.status,200);assert(r.saved.includes('"parents":["folder-a"]'));assert(r.saved.includes('fp365_title'));assert(r.saved.includes('Registration'));

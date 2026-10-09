@@ -51,15 +51,18 @@ export async function handleRequest(req: Request) {
     }
     const { data: truck, error: truckError } = await db.from("trucks").select("id,truck_number,company_id").eq("id",field("truckId")).eq("company_id",profile.company_id).is("deleted_at",null).single();
     assert(!truckError && truck,"Truck not found in your company.",404);
-    const { data: company, error: companyError } = await db.from("companies").select("documents_drive_folder_id").eq("id",profile.company_id).single();
-    assert(!companyError && company?.documents_drive_folder_id,"Your company's document folder is not configured.",409);
+    // Use a server-managed allowlist, not an admin-editable company field.
+    // A subscriber cannot redirect this service into another company's Drive folder.
+    const roots = JSON.parse(Deno.env.get("TRUCK_DOCUMENT_COMPANY_FOLDERS") || "{}");
+    const root = roots[profile.company_id];
+    assert(typeof root === "string" && /^[A-Za-z0-9_-]+$/.test(root),"Your company's truck document folder is not configured.",409);
     const token = await accessToken();
     async function drive(path: string, init: RequestInit = {}) {
       const response = await fetch("https://www.googleapis.com/drive/v3/"+path, { ...init, headers: { Authorization: `Bearer ${token}`, ...init.headers } });
       assert(response.ok, response.status === 404 ? "Document or truck folder is no longer available." : "Google Drive could not complete the request. Try again.",response.status === 404 ? 404 : 502);
       return response;
     }
-    const q = `'${quote(company.documents_drive_folder_id)}' in parents and name = '${quote(truck.truck_number)}' and mimeType = '${folderMime}' and trashed = false`;
+    const q = `'${quote(root)}' in parents and name = '${quote(truck.truck_number)}' and mimeType = '${folderMime}' and trashed = false`;
     const folders = await (await drive("files?"+new URLSearchParams({ q, fields:"files(id),nextPageToken", pageSize:"2", supportsAllDrives:"true", includeItemsFromAllDrives:"true" }))).json();
     assert(folders.files?.length === 1 && !folders.nextPageToken, folders.files?.length ? "More than one folder matches this truck. Ask your administrator to resolve the duplicate folders." : `Create a folder named ${truck.truck_number} inside your company document folder first.`,409);
     const folder = folders.files[0].id;
