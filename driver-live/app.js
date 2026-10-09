@@ -259,7 +259,8 @@
     };
     showModal("Resources",
       resourceSection("FMCSA Resources", "fmcsa", "No FMCSA links have been added by your administrator yet.") +
-      '<details class="resource-section"><summary>FedEx Locations</summary><div class="resource-list"><button type="button" class="resource-link fedex-resource-launch" data-open-fedex-locations><strong>Open FedEx Locations</strong><span>Maps, directions, contact information, routes, photos, and links.</span></button></div></details>'
+      '<details class="resource-section"><summary>FedEx Locations</summary><div class="resource-list"><button type="button" class="resource-link fedex-resource-launch" data-open-fedex-locations><strong>Open FedEx Locations</strong><span>Maps, directions, contact information, routes, photos, and links.</span></button></div></details>' +
+      '<details class="resource-section"><summary>Truck Documents</summary><div class="resource-list"><button type="button" class="resource-link" data-open-truck-documents><strong>Open Truck Documents</strong><span>Select a truck and open its documents.</span></button></div></details>'
     );
   }
 
