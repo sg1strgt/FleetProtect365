@@ -108,6 +108,7 @@ export default {
         email,
         role,
         status,
+        status_reason: status === "active" ? null : `User created with ${status} status`,
         title: role === "admin" ? "Admin" : role === "user" ? "User" : "Driver",
         is_tester: callerProfile.role === "super_admin" && Boolean(body.isTester),
         password_reset_required: true,
@@ -209,6 +210,10 @@ export default {
         return json({ ok: false, error: "Temporary password does not meet policy." }, 400);
       }
 
+      const statusReason = status === "active" ? null :
+        (target.status === status && String(target.status_reason || "").trim()) ||
+        `Status changed to ${status} in user editor`;
+
       const authUpdate: Record<string, unknown> = {
         email,
         user_metadata: { display_name: displayName, full_name: fullName, employee_id: employeeId },
@@ -227,6 +232,7 @@ export default {
         email,
         role,
         status,
+        status_reason: statusReason,
         title: role === "super_admin" ? "Super Admin" : role === "admin" ? "Admin" : role === "user" ? "User" : "Driver",
         drivers_license_number: body.driversLicenseNumber || null,
         drivers_license_state: body.driversLicenseState || null,
@@ -250,7 +256,7 @@ export default {
           company_id: callerProfile.company_id,
           previous_status: target.status,
           new_status: status,
-          reason: "Status changed in user editor",
+          reason: statusReason || "Status changed to active in user editor",
           changed_by: callerProfile.id,
         });
       }
