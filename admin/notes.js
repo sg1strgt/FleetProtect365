@@ -129,14 +129,16 @@
   }
   async function emailPdf() {
     if(busy || editing) return;
-    const email = $('notesRecipient').value === 'other' ? $('notesCustomEmail').value.trim() : $('notesRecipient').value;
-    if(email.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(email)) return message('Enter a valid email address.');
-    const destination = email;
+    const email = 'reports@fleetprotect365.com';
+    const other = $('notesRecipient').value === 'other';
+    const additionalEmail = other ? $('notesCustomEmail').value.trim() : '';
+    if(other && (additionalEmail.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(additionalEmail))) return message('Enter a valid additional email address.');
+    const destination = additionalEmail && additionalEmail.toLowerCase() !== email ? `${email} and ${additionalEmail}` : email;
     try {
       const report = buildPdf();
       busy = true; controls(); message(`Sending PDF to ${destination}…`);
       const pdfBase64 = report.doc.output('datauristring').split(',')[1];
-      const {data,error} = await s.functions.invoke('email-record-report',{body:{recipientEmail:email,reportType:'notes',fileName:report.fileName,pdfBase64,category:$('notesCategory').value || 'All categories',sortOrder:$('notesSort').selectedOptions[0].textContent,recordCount:report.count}});
+      const {data,error} = await s.functions.invoke('email-record-report',{body:{recipientEmail:email,additionalEmail,reportType:'notes',fileName:report.fileName,pdfBase64,category:$('notesCategory').value || 'All categories',sortOrder:$('notesSort').selectedOptions[0].textContent,recordCount:report.count}});
       if(error || !data?.ok) {
         let detail = data?.error || error?.message || 'Unable to email the PDF.';
         if(error?.context?.json) { try { detail = (await error.context.json()).error || detail; } catch (_) {} }
