@@ -235,6 +235,7 @@
     document.querySelectorAll('#driversBody button[data-user]').forEach((statusButton) => {
       const row = statusButton.closest('tr');
       const terminated = row?.querySelector('.badge')?.textContent.trim().toLowerCase() === 'terminated';
+      row.dataset.profileStatus = terminated ? 'terminated' : 'current';
       row.dataset.profileRole = row.cells[2]?.textContent.trim().toLowerCase() || '';
       if (!statusButton.parentElement.querySelector('[data-profile-view]')) {
         const viewButton = document.createElement('button');

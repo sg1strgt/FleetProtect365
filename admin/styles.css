@@ -20,3 +20,6 @@
 
 .content-item-inactive>div{opacity:.62}.content-item-inactive h3,.content-item-inactive p,.content-item-inactive a{text-decoration:line-through}
 .content-item-actions{display:flex;align-items:center;gap:8px}.content-item-actions .danger{background:#fff1f2;border-color:#ef9aa2;color:#b4232f}
+
+#driversBody tr[data-profile-status="terminated"] td,
+#driversBody tr[data-profile-status="terminated"] td small{color:#a52a2a}
