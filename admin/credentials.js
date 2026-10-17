@@ -136,7 +136,7 @@
     return data;
   }
 
-  async function openEditor(userId) {
+  async function openEditor(userId, reinstate = false) {
     $('editUserMsg').textContent = 'Loading…';
     $('editUserDialog').showModal();
     const { data, error } = await client.from('employee_profiles').select('*').eq('id', userId).single();
@@ -178,7 +178,12 @@
       `Failed attempts: <b>${failed}</b><br>` +
       `Locked until: <b>${formatDateTime(data.locked_until)}</b><br>` +
       `Last password reset: <b>${formatDateTime(data.last_password_reset_at)}</b>`;
-    $('editUserMsg').textContent = '';
+    if (reinstate && data.status === 'terminated' && !protectedSuperAdmin) {
+      $('editStatus').value = 'active';
+      $('editUserMsg').textContent = 'Save Changes to reinstate this employee as Active.';
+    } else {
+      $('editUserMsg').textContent = '';
+    }
   }
 
   async function openViewer(userId) {
@@ -229,10 +234,7 @@
   function attachEditButtons() {
     document.querySelectorAll('#driversBody button[data-user]').forEach((statusButton) => {
       const row = statusButton.closest('tr');
-      if (row?.querySelector('.badge')?.textContent.trim().toLowerCase() === 'terminated') {
-        row.remove();
-        return;
-      }
+      const terminated = row?.querySelector('.badge')?.textContent.trim().toLowerCase() === 'terminated';
       row.dataset.profileRole = row.cells[2]?.textContent.trim().toLowerCase() || '';
       if (!statusButton.parentElement.querySelector('[data-profile-view]')) {
         const viewButton = document.createElement('button');
@@ -247,7 +249,8 @@
       }
       const editButton = document.createElement('button');
       editButton.type = 'button';
-      editButton.textContent = 'Edit';
+      editButton.textContent = terminated ? 'Reinstate' : 'Edit';
+      if (terminated) editButton.dataset.reinstate = 'true';
       editButton.dataset.credentialEdit = statusButton.dataset.user;
       editButton.style.marginLeft = '6px';
       statusButton.parentElement.appendChild(editButton);
@@ -267,7 +270,7 @@
       return;
     }
     const button = event.target.closest('[data-credential-edit]');
-    if (button) openEditor(button.dataset.credentialEdit);
+    if (button) openEditor(button.dataset.credentialEdit, button.dataset.reinstate === 'true');
   });
   $('profileFilters').addEventListener('click', (event) => {
     const button = event.target.closest('[data-profile-filter]');

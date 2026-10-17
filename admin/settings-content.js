@@ -172,7 +172,7 @@
       [employees, trucks, inspections, recent].forEach(result => {
         if (result.error) throw result.error;
       });
-      $('userCount').textContent = (employees.data || []).length;
+      $('userCount').textContent = (employees.data || []).filter(x => x.status !== 'terminated').length;
       $('activeDriverCount').textContent = (employees.data || []).filter(x => x.role === 'driver' && x.status === 'active').length;
       $('truckCount').textContent = (trucks.data || []).filter(x => x.status === 'active').length;
       expirationAlerts = buildExpirationAlerts(employees.data || [], trucks.data || []);
