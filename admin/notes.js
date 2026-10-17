@@ -4,7 +4,7 @@
   if (!s || !$('notes')) return;
   const categories = ['General','Important','Urgent','Escalate','Resolved','Completed','Other'];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let rows = [], selected = null, editing = false, busy = false, companyId, updateMode = false, recipients = [];
+  let rows = [], selected = null, editing = false, busy = false, companyId, updateMode = false;
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const displayDate = iso => { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; };
   function parseDate(value) {
@@ -28,8 +28,7 @@
     $('exportNotes').disabled = busy || !filtered().length;
     $('emailNotes').disabled = busy || editing || !filtered().length || !$('notesRecipient').value.trim();
     $('notesRecipient').disabled = busy || editing;
-    $('addNotesAddress').disabled = busy || editing;
-    $('notesAdditionalEmail').disabled = busy || editing;
+    $('notesCustomEmail').disabled = busy || editing;
   }
   async function context() {
     const {data:session,error:sessionError} = await s.auth.getSession();
@@ -66,10 +65,6 @@
     const {data,error} = await s.from('admin_notes').select('*,updates:admin_note_updates(*)').eq('company_id',companyId).order('note_date',{ascending:false});
     if(error) throw error;
     rows = data || []; render();
-    const recipientResult = await s.from('report_recipients').select('id,display_name,email').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('display_name');
-    if(recipientResult.error) throw recipientResult.error;
-    recipients = recipientResult.data || [];
-    $('notesRecipientChoices').innerHTML = recipients.map(r => `<option value="${esc(r.email)}">${esc(r.display_name || r.email)}</option>`).join('');
     controls();
   }
   function closeEditor() { editing = false; updateMode = false; $('notesList').before($('noteEditor')); $('noteEditor').classList.add('hidden'); render(); }
@@ -134,17 +129,14 @@
   }
   async function emailPdf() {
     if(busy || editing) return;
-    const email = $('notesRecipient').value.trim();
-    if(!email || !$('notesRecipient').checkValidity()) return message('Enter a valid email address.');
-    const additionalEmail = $('notesAdditionalEmail').value.trim();
-    if(!$('notesAdditionalAddress').classList.contains('hidden') && (!additionalEmail || !$('notesAdditionalEmail').checkValidity())) return message('Enter a valid additional email address.');
-    const destination = additionalEmail && additionalEmail.toLowerCase() !== email.toLowerCase() ? `${email} and ${additionalEmail}` : email;
-    const recipient = recipients.find(r => r.email.toLowerCase()===email.toLowerCase());
+    const email = $('notesRecipient').value === 'other' ? $('notesCustomEmail').value.trim() : $('notesRecipient').value;
+    if(email.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(email)) return message('Enter a valid email address.');
+    const destination = email;
     try {
       const report = buildPdf();
       busy = true; controls(); message(`Sending PDF to ${destination}…`);
       const pdfBase64 = report.doc.output('datauristring').split(',')[1];
-      const {data,error} = await s.functions.invoke('email-record-report',{body:{...(recipient ? {recipientId:recipient.id} : {recipientEmail:email}),additionalEmail,reportType:'notes',fileName:report.fileName,pdfBase64,category:$('notesCategory').value || 'All categories',sortOrder:$('notesSort').selectedOptions[0].textContent,recordCount:report.count}});
+      const {data,error} = await s.functions.invoke('email-record-report',{body:{recipientEmail:email,reportType:'notes',fileName:report.fileName,pdfBase64,category:$('notesCategory').value || 'All categories',sortOrder:$('notesSort').selectedOptions[0].textContent,recordCount:report.count}});
       if(error || !data?.ok) {
         let detail = data?.error || error?.message || 'Unable to email the PDF.';
         if(error?.context?.json) { try { detail = (await error.context.json()).error || detail; } catch (_) {} }
@@ -155,12 +147,13 @@
     finally { busy = false; controls(); }
   }
   categories.forEach(category => { $('noteCategory').add(new Option(category,category)); $('notesCategory').add(new Option(category,category)); });
-  function resetAdditionalAddress() { $('notesAdditionalEmail').value=''; $('notesAdditionalAddress').classList.add('hidden'); $('addNotesAddress').textContent='Add additional address'; $('addNotesAddress').setAttribute('aria-expanded','false'); }
-  $('addNotesAddress').onclick = () => {
-    if($('notesAdditionalAddress').classList.contains('hidden')) { $('notesAdditionalAddress').classList.remove('hidden'); $('addNotesAddress').textContent='Remove additional address'; $('addNotesAddress').setAttribute('aria-expanded','true'); $('notesAdditionalEmail').focus(); }
-    else resetAdditionalAddress();
-  };
-  $('notesRecipient').oninput = controls; $('emailNotes').onclick = emailPdf;
+  $('notesRecipient').onchange = () => {
+    const other = $('notesRecipient').value === 'other';
+    $('notesCustomAddress').classList.toggle('hidden',!other);
+    $('notesCustomEmail').value = '';
+    message(''); controls();
+    if(other) $('notesCustomEmail').focus();
+  }; $('emailNotes').onclick = emailPdf;
   $('newNote').onclick = () => openEditor();
   $('editNote').onclick = () => openEditor(rows.find(r=>r.id===selected));
   $('addNoteUpdate').onclick = () => { const row = rows.find(r => r.id===selected); if(row) openEditor(row,true); };
@@ -180,6 +173,6 @@
     finally { busy = false; render(); }
   });
   document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => { if(button.dataset.view!=='notes') $('notes').classList.add('hidden'); }));
-  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; recipients=[]; $('notesRecipientChoices').innerHTML=''; $('notesRecipient').value='reports@fleetprotect365.com'; resetAdditionalAddress(); selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
+  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; $('notesRecipient').value='reports@fleetprotect365.com'; $('notesCustomEmail').value=''; $('notesCustomAddress').classList.add('hidden'); selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
   controls();
 })();
