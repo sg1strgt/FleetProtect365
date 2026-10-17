@@ -180,6 +180,6 @@
     finally { busy = false; render(); }
   });
   document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => { if(button.dataset.view!=='notes') $('notes').classList.add('hidden'); }));
-  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; recipients=[]; $('notesRecipientChoices').innerHTML=''; $('notesRecipient').value='steven@fleetprotect365.com'; resetAdditionalAddress(); selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
+  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; recipients=[]; $('notesRecipientChoices').innerHTML=''; $('notesRecipient').value='reports@fleetprotect365.com'; resetAdditionalAddress(); selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
   controls();
 })();
