@@ -75,8 +75,10 @@ const handleRequest = async (req: Request) => {
     }
     const title = reportType === "notes" ? "Notes Report" : reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
     const fileName = (safe(body.fileName, 170).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]*$/, "") || `FleetProtect365_${reportType}_report`) + `.${format}`;
-    const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") || Deno.env.get("RESEND_FROM_EMAIL") ||
-      "Fleet Protect 365 <reports@fleetprotect365.com>";
+    const fromEmail = reportType === "notes"
+      ? "Fleet Protect 365 <reports@fleetprotect365.com>"
+      : Deno.env.get("REPORT_FROM_EMAIL") || Deno.env.get("RESEND_FROM_EMAIL") ||
+        "Fleet Protect 365 <reports@fleetprotect365.com>";
     stage = "email delivery";
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
