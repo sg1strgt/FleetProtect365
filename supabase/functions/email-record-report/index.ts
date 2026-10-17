@@ -65,6 +65,14 @@ const handleRequest = async (req: Request) => {
       if (!data.active || data.deleted_at) return json({ error: "The selected recipient is inactive." }, 400);
       recipient = data;
     }
+    const to = [recipient.email];
+    if (reportType === "notes" && body.additionalEmail) {
+      const additionalEmail = typeof body.additionalEmail === "string" ? body.additionalEmail.trim() : "";
+      if (additionalEmail.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(additionalEmail)) {
+        return json({ error: "Enter one valid additional email address." }, 400);
+      }
+      if (!to.some(email => email.toLowerCase() === additionalEmail.toLowerCase())) to.push(additionalEmail);
+    }
     const title = reportType === "notes" ? "Notes Report" : reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
     const fileName = (safe(body.fileName, 170).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]*$/, "") || `FleetProtect365_${reportType}_report`) + `.${format}`;
     const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") || Deno.env.get("RESEND_FROM_EMAIL") ||
@@ -75,7 +83,7 @@ const handleRequest = async (req: Request) => {
       headers: { Authorization: `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: fromEmail,
-        to: [recipient.email],
+        to,
         subject: `Fleet Protect 365 - ${title}`,
         html: `<h2>Fleet Protect 365</h2><h3>${title}</h3>
           ${reportType === "notes" ? `<p><strong>Category:</strong> ${safe(body.category) || "All categories"}</p><p><strong>Sort:</strong> ${safe(body.sortOrder) || "Newest first"}</p><p>Includes saved note updates.</p>` : reportType === "mileage" ? "<p>Location routes: From, To, and Miles.</p>" : `<p><strong>Employee:</strong> ${safe(body.driverName) || "All employees"}</p>
@@ -89,7 +97,7 @@ const handleRequest = async (req: Request) => {
     let result: Record<string, unknown> = {};
     try { result = responseText ? JSON.parse(responseText) : {}; } catch { result = { message: responseText }; }
     if (!response.ok) throw new Error(String(result?.message || result?.error || "The email provider rejected the message."));
-    return json({ ok: true, recipient: recipient.email, email_id: result?.id || null });
+    return json({ ok: true, recipient: recipient.email, recipients: to, email_id: result?.id || null });
   } catch (error) {
     console.error(error);
     return json({ error: error instanceof Error ? error.message : String(error), stage }, 500);
