@@ -14,6 +14,85 @@
   dialog.innerHTML = '<div id="inspectionViewerContent" class="inspection-viewer"></div>';
   document.body.appendChild(dialog);
 
+  const sendDialog = document.createElement('dialog');
+  sendDialog.id = 'submissionSendDialog';
+  document.body.appendChild(sendDialog);
+  let sendPreview = null;
+  let sending = false;
+  sendDialog.addEventListener('cancel', event => { if (sending) event.preventDefault(); });
+
+  async function invokeSend(body) {
+    let { data, error } = await client.auth.getSession();
+    let session = data?.session;
+    if (!error && (!session?.expires_at || session.expires_at * 1000 < Date.now() + 60000)) {
+      const refreshed = await client.auth.refreshSession();
+      error = refreshed.error;
+      session = refreshed.data?.session;
+    }
+    if (error || !session?.access_token) throw new Error('Your Admin session has expired. Log in again and retry.');
+    const result = await client.functions.invoke('admin-send-submission', {
+      body, headers: { Authorization: `Bearer ${session.access_token}` }
+    });
+    let details = result.data;
+    if (result.error?.context?.json) {
+      try { details = await result.error.context.json(); } catch { /* Keep the original error. */ }
+    }
+    if (result.error || !details?.ok) {
+      const failure = new Error(details?.error || result.error?.message || 'The report could not be sent.');
+      failure.emailAccepted = details?.email_accepted;
+      throw failure;
+    }
+    return details;
+  }
+
+  async function previewSend(inspectionId) {
+    sendPreview = null;
+    sendDialog.innerHTML = '<div class="inspection-viewer"><h3>Send End-of-Shift Report</h3><p role="status">Loading the saved shift and recipients…</p><button type="button" data-close-send>Cancel</button></div>';
+    if (!sendDialog.open) sendDialog.showModal();
+    try {
+      const preview = await invokeSend({ action: 'preview', inspectionId });
+      sendPreview = { ...preview, inspectionId, requestId: crypto.randomUUID() };
+      sendDialog.innerHTML = `<div class="inspection-viewer"><h3>Send End-of-Shift Report</h3>
+        <p><strong>${esc(preview.driver)}</strong> · ${esc(preview.report_date)} (Central time)</p>
+        <p>This report includes <strong>${esc(preview.inspection_count)} saved submission(s)</strong> and ${esc(preview.photo_count)} saved photo(s) for this driver and date.</p>
+        <p><strong>Send to:</strong> ${preview.recipients.map(esc).join(', ') || 'No recipients configured'}</p>
+        ${(preview.warnings || []).map(warning => `<p class="form-message">${esc(warning)}</p>`).join('')}
+        <p>The PDF will be saved in Reports. This sends a new copy even if an earlier report was emailed. It does not complete the driver's app checklist.</p>
+        <p id="submissionSendMessage" role="status">${esc(preview.blocked_reason || '')}</p>
+        <div class="actions"><button type="button" data-close-send>Cancel</button><button type="button" class="primary" data-confirm-submission-send ${preview.can_send ? '' : 'disabled'}>Send Report</button></div></div>`;
+    } catch (error) {
+      sendDialog.innerHTML = `<div class="inspection-viewer"><h3>Unable to prepare report</h3><p role="alert">${esc(error.message)}</p><button type="button" data-close-send>Close</button></div>`;
+    }
+  }
+
+  async function sendSubmission(button) {
+    if (sending || !sendPreview) return;
+    const preview = sendPreview;
+    const message = document.getElementById('submissionSendMessage');
+    const close = sendDialog.querySelector('[data-close-send]');
+    sending = true;
+    button.disabled = true;
+    close.disabled = true;
+    message.textContent = 'Creating the PDF and sending the report. Please keep this window open…';
+    try {
+      const result = await invokeSend({ action: 'send', inspectionId: preview.inspectionId,
+        requestId: preview.requestId, expectedInspectionIds: preview.inspection_ids, expectedRecipients: preview.recipients });
+      message.textContent = `Email provider accepted the report for ${result.recipients.join(', ')}. Report: ${result.report_id}.${result.warning ? ' ' + result.warning : ''}`;
+      button.textContent = 'Sent';
+      close.textContent = 'Close';
+      document.dispatchEvent(new CustomEvent('fp365:report-sent'));
+      await openInspection(preview.inspectionId);
+    } catch (error) {
+      message.textContent = error.emailAccepted
+        ? `The email provider accepted the report, but a later step failed: ${error.message}. Check the inbox before sending another copy.`
+        : `${error.message} No successful send was confirmed. You may retry; retries from this window use the same send request.`;
+      button.disabled = Boolean(error.emailAccepted);
+    } finally {
+      sending = false;
+      close.disabled = false;
+    }
+  }
+
   async function openInspection(id) {
     const content = document.getElementById('inspectionViewerContent');
     content.innerHTML = '<p>Loading submission…</p>';
@@ -83,12 +162,17 @@
             : '<p>No centrally stored photos are available for this submission yet.</p>'}
       </div>
       <div class="inspection-report-box"><h4>End-of-Shift Report</h4>${report
-        ? `<p>${esc(report.report_id)} · emailed ${esc(dateTime(report.emailed_at))}</p><button type="button" class="primary" data-open-report="${esc(report.storage_path)}">Open or Download PDF</button>`
-        : '<p>This inspection has not yet been included in an archived End-of-Shift report.</p>'}</div>
+        ? `<p>${esc(report.report_id)} · ${report.email_status === 'sent' ? 'email accepted ' + esc(dateTime(report.emailed_at)) : esc(report.email_status || 'not sent')}</p><button type="button" class="primary" data-open-report="${esc(report.storage_path)}">Open or Download PDF</button>`
+        : '<p>This inspection has not yet been included in an archived End-of-Shift report.</p>'}<p><button type="button" class="primary" data-send-submission="${esc(inspection.id)}">Send End-of-Shift Report</button></p></div>
       <div class="actions"><button type="button" data-close-inspection>Close</button></div>`;
   }
 
   document.addEventListener('click', async (event) => {
+    if (event.target.closest('[data-close-send]')) { if (!sending) sendDialog.close(); return; }
+    const sendButton = event.target.closest('[data-send-submission]');
+    if (sendButton) return previewSend(sendButton.dataset.sendSubmission);
+    const confirmSend = event.target.closest('[data-confirm-submission-send]');
+    if (confirmSend) return sendSubmission(confirmSend);
     const submission = event.target.closest('[data-inspection-id]');
     if (submission) return openInspection(submission.dataset.inspectionId);
     if (event.target.closest('[data-close-inspection]')) return dialog.close();
