@@ -24,7 +24,7 @@ const handleRequest = async (req: Request) => {
     }
     stage = "request";
     const body = await req.json();
-    const reportType = ["callout", "timeoff", "mileage"].includes(body.reportType) ? body.reportType : "";
+    const reportType = ["callout", "timeoff", "mileage", "notes"].includes(body.reportType) ? body.reportType : "";
     // Preserve the original PDF request contract for attendance reports.
     const format = reportType === "mileage" ? String(body.format || "pdf") : "pdf";
     const formats: Record<string, string> = {
@@ -55,7 +55,7 @@ const handleRequest = async (req: Request) => {
       .eq("id", body.recipientId).eq("company_id", profile.company_id).single();
     if (recipientError) throw recipientError;
     if (!recipient.active || recipient.deleted_at) return json({ error: "The selected recipient is inactive." }, 400);
-    const title = reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
+    const title = reportType === "notes" ? "Notes Report" : reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
     const fileName = (safe(body.fileName, 170).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]*$/, "") || `FleetProtect365_${reportType}_report`) + `.${format}`;
     const fromEmail = Deno.env.get("REPORT_FROM_EMAIL") || Deno.env.get("RESEND_FROM_EMAIL") ||
       "Fleet Protect 365 <reports@fleetprotect365.com>";
@@ -68,7 +68,7 @@ const handleRequest = async (req: Request) => {
         to: [recipient.email],
         subject: `Fleet Protect 365 - ${title}`,
         html: `<h2>Fleet Protect 365</h2><h3>${title}</h3>
-          ${reportType === "mileage" ? "<p>Location routes: From, To, and Miles.</p>" : `<p><strong>Employee:</strong> ${safe(body.driverName) || "All employees"}</p>
+          ${reportType === "notes" ? `<p><strong>Category:</strong> ${safe(body.category) || "All categories"}</p><p><strong>Sort:</strong> ${safe(body.sortOrder) || "Newest first"}</p><p>Includes saved note updates.</p>` : reportType === "mileage" ? "<p>Location routes: From, To, and Miles.</p>" : `<p><strong>Employee:</strong> ${safe(body.driverName) || "All employees"}</p>
           <p><strong>Date range:</strong> ${safe(body.dateFrom) || "All"} through ${safe(body.dateTo) || "All"}</p>`}
           <p><strong>Records:</strong> ${Number(body.recordCount || 0)}</p>
           <p>This ${format.toUpperCase()} report was sent by ${safe(profile.full_name) || "an administrator"}.</p>`,

@@ -4,7 +4,7 @@
   if (!s || !$('notes')) return;
   const categories = ['General','Important','Urgent','Escalate','Resolved','Completed','Other'];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let rows = [], selected = null, editing = false, busy = false, companyId, updateMode = false;
+  let rows = [], selected = null, editing = false, busy = false, companyId, updateMode = false, recipients = [];
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const displayDate = iso => { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; };
   function parseDate(value) {
@@ -26,6 +26,8 @@
     $('notesList').querySelectorAll('input[name=selectedNote]').forEach(el => el.disabled = busy || editing);
     $('noteEditor').querySelectorAll('input,select,textarea').forEach(el => el.disabled = busy);
     $('exportNotes').disabled = busy || !filtered().length;
+    $('emailNotes').disabled = busy || editing || !filtered().length || !$('notesRecipient').value;
+    $('notesRecipient').disabled = busy || editing;
   }
   async function context() {
     const {data:session,error:sessionError} = await s.auth.getSession();
@@ -62,6 +64,13 @@
     const {data,error} = await s.from('admin_notes').select('*,updates:admin_note_updates(*)').eq('company_id',companyId).order('note_date',{ascending:false});
     if(error) throw error;
     rows = data || []; render();
+    const recipientResult = await s.from('report_recipients').select('id,display_name,email').eq('company_id',companyId).eq('active',true).is('deleted_at',null).order('display_name');
+    if(recipientResult.error) throw recipientResult.error;
+    recipients = recipientResult.data || [];
+    const recipientId = $('notesRecipient').value;
+    $('notesRecipient').innerHTML = '<option value="">Select recipient</option>' + recipients.map(r => `<option value="${esc(r.id)}">${esc(r.display_name || r.email)} — ${esc(r.email)}</option>`).join('');
+    if(recipients.some(r => r.id===recipientId)) $('notesRecipient').value = recipientId;
+    controls();
   }
   function closeEditor() { editing = false; updateMode = false; $('notesList').before($('noteEditor')); $('noteEditor').classList.add('hidden'); render(); }
   function openEditor(row, addingUpdate = false) {
@@ -110,18 +119,39 @@
     } catch(error) { message(`Unable to delete note: ${error.message}`); }
     finally { busy = false; render(); }
   }
-  function exportPdf() {
-    try {
+  function buildPdf() {
       const visible = filtered(); if(!visible.length) throw Error('No notes match these filters.');
       const JsPDF = window.jspdf?.jsPDF; if(!JsPDF) throw Error('PDF export is unavailable. Reload the portal and try again.');
       const doc = new JsPDF({unit:'pt',format:'letter'});
       doc.setFontSize(18); doc.text('Fleet Protect 365 — Notes',40,40);
       doc.setFontSize(10); doc.text(`Category: ${$('notesCategory').value || 'All categories'} | ${$('notesSort').selectedOptions[0].textContent}`,40,60);
       doc.autoTable({startY:76,margin:40,head:[['Date','Category','Note']],body:visible.map(r=>[displayDate(r.note_date),r.category,[r.body,...updatesFor(r).map(u=>`${updateText(u)}\n${u.body}`)].join('\n\n')]),styles:{fontSize:9,cellPadding:6,overflow:'linebreak'},columnStyles:{0:{cellWidth:65},1:{cellWidth:75},2:{cellWidth:392}},headStyles:{fillColor:[31,111,209]}});
-      doc.save(`FP365-Notes-${today()}.pdf`);
-    } catch(error) { message(error.message); }
+      return {doc,fileName:`FP365-Notes-${today()}.pdf`,count:visible.length};
+  }
+  function exportPdf() {
+    try { const report = buildPdf(); report.doc.save(report.fileName); }
+    catch(error) { message(error.message); }
+  }
+  async function emailPdf() {
+    if(busy || editing) return;
+    const recipient = recipients.find(r => r.id===$('notesRecipient').value);
+    if(!recipient) return message('Select an email recipient first.');
+    try {
+      const report = buildPdf();
+      busy = true; controls(); message(`Sending PDF to ${recipient.email}…`);
+      const pdfBase64 = report.doc.output('datauristring').split(',')[1];
+      const {data,error} = await s.functions.invoke('email-record-report',{body:{recipientId:recipient.id,reportType:'notes',fileName:report.fileName,pdfBase64,category:$('notesCategory').value || 'All categories',sortOrder:$('notesSort').selectedOptions[0].textContent,recordCount:report.count}});
+      if(error || !data?.ok) {
+        let detail = data?.error || error?.message || 'Unable to email the PDF.';
+        if(error?.context?.json) { try { detail = (await error.context.json()).error || detail; } catch (_) {} }
+        throw Error(detail);
+      }
+      message(`PDF emailed to ${recipient.email}.`);
+    } catch(error) { message(`Unable to email PDF: ${error.message}`); }
+    finally { busy = false; controls(); }
   }
   categories.forEach(category => { $('noteCategory').add(new Option(category,category)); $('notesCategory').add(new Option(category,category)); });
+  $('notesRecipient').onchange = controls; $('emailNotes').onclick = emailPdf;
   $('newNote').onclick = () => openEditor();
   $('editNote').onclick = () => openEditor(rows.find(r=>r.id===selected));
   $('addNoteUpdate').onclick = () => { const row = rows.find(r => r.id===selected); if(row) openEditor(row,true); };
@@ -141,6 +171,6 @@
     finally { busy = false; render(); }
   });
   document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => { if(button.dataset.view!=='notes') $('notes').classList.add('hidden'); }));
-  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
+  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; recipients=[]; $('notesRecipient').innerHTML='<option value="">Select recipient</option>'; selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
   controls();
 })();
