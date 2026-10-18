@@ -33,7 +33,7 @@ const handleRequest = async (req: Request) => {
       docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     };
     const content = String(body.attachmentBase64 || body.pdfBase64 || "");
-    if (!reportType || !(body.recipientId || (reportType === "notes" && body.recipientEmail)) || !Object.hasOwn(formats, format) || !content || content.length > 12_000_000 ||
+    if (!reportType || !(body.recipientId || reportType === "notes") || !Object.hasOwn(formats, format) || !content || content.length > 12_000_000 ||
         content.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(content)) {
       return json({ error: "A valid report, attachment, and recipient are required." }, 400);
     }
@@ -51,12 +51,8 @@ const handleRequest = async (req: Request) => {
     if (!["admin", "super_admin"].includes(profile.role)) return json({ error: "Admin access is required." }, 403);
     stage = "recipient lookup";
     let recipient: { email: string };
-    if (reportType === "notes" && !body.recipientId) {
-      const email = typeof body.recipientEmail === "string" ? body.recipientEmail.trim() : "";
-      if (email.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(email)) {
-        return json({ error: "Enter one valid email address." }, 400);
-      }
-      recipient = { email };
+    if (reportType === "notes") {
+      recipient = { email: "reports@fleetprotect365.com" };
     } else {
       const { data, error } = await client.from("report_recipients")
         .select("id,company_id,display_name,email,active,deleted_at")
@@ -66,13 +62,6 @@ const handleRequest = async (req: Request) => {
       recipient = data;
     }
     const to = [recipient.email];
-    if (reportType === "notes" && body.additionalEmail) {
-      const additionalEmail = typeof body.additionalEmail === "string" ? body.additionalEmail.trim() : "";
-      if (additionalEmail.length > 254 || !/^[^\s@<>(),;:]+@[^\s@<>(),;:]+\.[^\s@<>(),;:]+$/.test(additionalEmail)) {
-        return json({ error: "Enter one valid additional email address." }, 400);
-      }
-      if (!to.some(email => email.toLowerCase() === additionalEmail.toLowerCase())) to.push(additionalEmail);
-    }
     const title = reportType === "notes" ? "Notes Report" : reportType === "mileage" ? "Location ID Record" : reportType === "callout" ? "Call Out Record Report" : "Requested Time Off Report";
     const fileName = (safe(body.fileName, 170).replace(/[^a-zA-Z0-9_.-]/g, "_").replace(/\.[^.]*$/, "") || `FleetProtect365_${reportType}_report`) + `.${format}`;
     const fromEmail = reportType === "notes"
