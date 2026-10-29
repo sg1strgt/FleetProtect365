@@ -1355,101 +1355,68 @@
     }
   }
 
-function renderEndShift() {
+async function renderEndShift() {
     header("End of Shift");
+    const userId = state.user?.id;
     const items = checklistItems("question_post");
-
-    const now = new Date();
-    const todayEntries = driverEntries().filter(entry => {
-      const submitted = new Date(entry.submitted_at || entry.created_at);
-      return submitted.getFullYear() === now.getFullYear()
-        && submitted.getMonth() === now.getMonth()
-        && submitted.getDate() === now.getDate();
-    }).sort((a, b) => {
-      const aSubmitted = new Date(a.submitted_at || a.created_at).getTime();
-      const bSubmitted = new Date(b.submitted_at || b.created_at).getTime();
-      return aSubmitted - bSubmitted;
-    });
-
-    main.innerHTML = `
-      <section class="card">
-        <h2>End-of-shift checklist</h2>
-        <p class="field-help">${todayEntries.length} submitted entr${todayEntries.length === 1 ? "y" : "ies"} found for today.</p>
-        ${todayEntries.length === 0 ? `<div class="alert">No inspections are available to email for today.</div>` : ""}
-        ${items.map(x => `<label class="check"><input class="shift" type="checkbox"><span>${esc(x)}</span></label>`).join("")}
-      </section>
-      <button id="finishShift" class="success" ${todayEntries.length === 0 ? "disabled" : ""}>
-        Email Report and Complete End of Shift
-      </button>`;
-
-    document.getElementById("finishShift").onclick = async () => {
-      if ([...document.querySelectorAll(".shift")].some(x => !x.checked)) {
-        return showModal("Checklist incomplete", "<p>Every item must be confirmed before completing End of Shift.</p>");
-      }
-      if (!todayEntries.length) return showModal("No inspections found", "<p>There are no submitted inspections for today.</p>");
-      if (!supabaseClient) return showModal("Email not configured", "<p>Supabase is not configured in config.js.</p>");
-
-      const button = document.getElementById("finishShift");
-      button.disabled = true;
-      button.textContent = "Creating and emailing PDF…";
-
-      const payload = {
-        driver: {
-          full_name: state.user?.full_name || "",
-          employee_id: state.user?.employee_id || "",
-          email: state.user?.email || ""
-        },
-        shift_date: [
-          now.getFullYear(),
-          String(now.getMonth() + 1).padStart(2, "0"),
-          String(now.getDate()).padStart(2, "0")
-        ].join("-"),
-        entries: todayEntries,
-        app_version: cfg.APP_VERSION || "Driver v1.7"
-      };
-
-      try {
-        const syncFailures = await syncPendingInspections();
-        const unsynced = todayEntries.filter(entry =>
-          !entry.synced_to_supabase || !entry.photos_synced_to_supabase
-        );
-        if (unsynced.length) {
-          const matchingFailure = syncFailures.find(({ entry }) => unsynced.some(item => item.id === entry.id));
-          throw new Error(matchingFailure?.error?.message || "The inspection or its photos are still uploading. Please keep the app open and try End of Shift again.");
+    main.innerHTML = '<section class="card"><h2>End-of-shift checklist</h2><p>Checking submitted inspections awaiting a shift report…</p></section>';
+    try {
+      if(!supabaseClient) throw Error('Connect to the internet and sign in before completing End of Shift.');
+      const failures = await syncPendingInspections();
+      // Do not lose pending local uploads when the central list is used.
+      const localPending = driverEntries().filter(entry => !entry.end_shift_email_confirmed_at && (!entry.synced_to_supabase || !entry.photos_synced_to_supabase));
+      if(localPending.length) throw Error(failures.find(({entry})=>localPending.some(item=>item.id===entry.id))?.error?.message || 'An inspection or its photos are still uploading. Keep the app open, then select Refresh Inspections.');
+      const {data,error} = await supabaseClient.functions.invoke(cfg.END_SHIFT_FUNCTION || 'send-end-shift',{body:{action:'list_pending'}});
+      if(error) throw await shiftError(error);
+      if(!data?.ok) throw Error(data?.error || 'Submitted inspections could not be checked.');
+      if(state.screen!=='endShift' || state.user?.id!==userId) return;
+      const pending = data.inspections || [];
+      main.innerHTML = `
+        <section class="card">
+          <h2>End-of-shift checklist</h2>
+          <p class="field-help">${pending.length} submitted inspection${pending.length===1?'':'s'} awaiting a shift report.</p>
+          ${pending.length ? `<p>Review the inspections for this shift, including any submitted before midnight. Uncheck inspections that belong to another shift.</p>
+          ${pending.map(entry=>`<label class="check"><input class="shift-inspection" type="checkbox" value="${esc(entry.id)}" checked><span>${esc(entry.inspection_number || 'Inspection')} · ${esc(new Date(entry.submitted_at).toLocaleString())}</span></label>`).join('')}` : '<div class="alert">No submitted inspections are awaiting a shift report. Inspections already emailed, including reports sent by Admin, are excluded.</div>'}
+          ${items.map(x=>`<label class="check"><input class="shift" type="checkbox"><span>${esc(x)}</span></label>`).join('')}
+        </section>
+        <button id="refreshShift" type="button">Refresh Inspections</button>
+        <button id="finishShift" class="success" ${pending.length?'':'disabled'}>Email Report and Complete End of Shift</button>`;
+      const selectedIds = () => [...document.querySelectorAll('.shift-inspection:checked')].map(input=>input.value);
+      document.querySelectorAll('.shift-inspection').forEach(input=>input.onchange=()=>{document.getElementById('finishShift').disabled=!selectedIds().length;});
+      document.getElementById('refreshShift').onclick=renderEndShift;
+      document.getElementById('finishShift').onclick=async()=>{
+        if([...document.querySelectorAll('.shift')].some(x=>!x.checked)) return showModal('Checklist incomplete','<p>Every item must be confirmed before completing End of Shift.</p>');
+        const ids=selectedIds();
+        if(!ids.length) return showModal('Select inspections','<p>Select the submitted inspections for this shift.</p>');
+        const button=document.getElementById('finishShift'),refresh=document.getElementById('refreshShift');
+        button.disabled=true; refresh.disabled=true; button.textContent='Creating and emailing PDF…';
+        document.querySelectorAll('.shift-inspection,.shift').forEach(input=>input.disabled=true);
+        try {
+          const {data,error}=await supabaseClient.functions.invoke(cfg.END_SHIFT_FUNCTION || 'send-end-shift',{body:{action:'send_pending',expected_inspection_ids:ids,app_version:cfg.APP_VERSION || 'Driver overnight shifts'}});
+          if(error) throw await shiftError(error);
+          if(!data?.ok) throw Error(data?.error || 'The report email was not confirmed.');
+          const confirmedAt=new Date().toISOString();
+          state.entries.filter(entry=>ids.includes(entry.id)).forEach(entry=>{entry.end_shift_email_confirmed_at=confirmedAt;});
+          await dbSet('entries',state.entries);
+          showModal('Report emailed',`<p>Your End-of-Shift report containing ${ids.length} inspection${ids.length===1?'':'s'} ${data.already_completed?'was already emailed':'was emailed successfully'}.</p><p>Have a good night.</p>`);
+          await supabaseClient.auth.signOut();
+          localStorage.removeItem('fp365_user'); state.user=null; state.history=[]; state.screen='login'; setTimeout(render,500);
+        } catch(error) {
+          button.disabled=false;refresh.disabled=false;button.textContent='Email Report and Complete End of Shift';
+          document.querySelectorAll('.shift-inspection,.shift').forEach(input=>input.disabled=false);
+          showModal('End of Shift could not be confirmed',`<p>${esc(error.message || String(error))}</p><p>If delivery was interrupted, retry the same selection. Use Refresh Inspections if the list has changed.</p><button type="button" id="endShiftErrorLogout" class="danger">Log Out Now</button>`);
+          document.getElementById('endShiftErrorLogout').onclick=logoutDriver;
         }
-        const { data, error } = await supabaseClient.functions.invoke(
-          cfg.END_SHIFT_FUNCTION || "send-end-shift",
-          { body: payload }
-        );
-        if (error) throw error;
-        if (!data?.ok) throw new Error(data?.error || "The report email was not confirmed.");
-
-        const confirmedAt = new Date().toISOString();
-        todayEntries.forEach((entry) => {
-          entry.end_shift_email_confirmed_at = confirmedAt;
-        });
-        await dbSet("entries", state.entries);
-
-        showModal(
-          "Report emailed",
-          `<p>Your printable End-of-Shift PDF containing ${todayEntries.length} inspection${todayEntries.length === 1 ? "" : "s"} was emailed to the Admin and your driver email.</p><p>Have a good night.</p>`
-        );
-        await supabaseClient.auth.signOut();
-        localStorage.removeItem("fp365_user");
-        state.user = null;
-        state.history = [];
-        state.screen = "login";
-        setTimeout(render, 500);
-      } catch (err) {
-        button.disabled = false;
-        button.textContent = "Email Report and Complete End of Shift";
-        showModal(
-          "End of Shift could not be confirmed",
-          `<p>${esc(err.message || String(err))}</p><p>The report may have been delivered, but completion was not confirmed.</p><p>You can try again or log out now.</p><button type="button" id="endShiftErrorLogout" class="danger">Log Out Now</button>`
-        );
-        document.getElementById("endShiftErrorLogout").onclick = logoutDriver;
-      }
-    };
+      };
+    } catch(error) {
+      if(state.screen!=='endShift' || state.user?.id!==userId) return;
+      main.innerHTML=`<section class="card"><h2>Unable to check submitted inspections</h2><p>${esc(error.message || String(error))}</p><p>Your saved inspections have not been removed.</p><button id="refreshShift" type="button">Refresh Inspections</button></section>`;
+      document.getElementById('refreshShift').onclick=renderEndShift;
+    }
+  }
+  async function shiftError(error) {
+    try { const body=await error.context?.json(); if(body?.error) return Error(body.error); } catch (_) {}
+    return error;
   }
   function renderFeedback() {
     header("Feedback / Suggestion");

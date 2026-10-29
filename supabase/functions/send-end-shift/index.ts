@@ -1,6 +1,8 @@
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { pendingDriverShift, recoverShiftEntries, sortedIds, shiftSequence } from "../_shared/pending-driver-shift.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -20,6 +22,7 @@ type Entry = {
   extra_photos?: Photo[];
 };
 type RequestBody = {
+  action?: string; expected_inspection_ids?: string[];
   driver?: { full_name?: string; employee_id?: string; email?: string };
   entries?: Entry[]; shift_date?: string; app_version?: string;
   company_name?: string; company_code?: string; report_sequence?: number;
@@ -616,7 +619,27 @@ Deno.serve(async (req) => {
       throw new Error("RESEND_API_KEY is not configured.");
     }
 
-    const body = await req.json() as RequestBody;
+    let body = await req.json() as RequestBody;
+    const pendingRequest = body.action === 'list_pending' || body.action === 'send_pending';
+    if(pendingRequest) {
+      const respond = (value: unknown, status=200) => new Response(JSON.stringify(value),{status,headers:{...corsHeaders,'Content-Type':'application/json'}});
+      const url=Deno.env.get('SUPABASE_URL'),key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      const authorization=req.headers.get('Authorization') || '';
+      if(!url || !key || !authorization.startsWith('Bearer ')) return respond({error:'Please sign in again before completing End of Shift.'},401);
+      const client=createClient(url,key);
+      const {data:auth,error:authError}=await client.auth.getUser(authorization.slice(7));
+      if(authError || !auth.user) return respond({error:'Please sign in again before completing End of Shift.'},401);
+      const {driver,pending,sent}=await pendingDriverShift(client,auth.user.id);
+      if(body.action==='list_pending') return respond({ok:true,inspections:pending.map(i=>({id:i.id,inspection_number:i.inspection_number,submitted_at:i.submitted_at})),inspection_count:pending.length});
+      const expected=Array.isArray(body.expected_inspection_ids)?sortedIds(body.expected_inspection_ids):[];
+      if(!expected.length) return respond({error:'Reopen End of Shift to check submitted inspections.'},400);
+      if(expected.every(id=>sent.has(id))) return respond({ok:true,already_completed:true,inspection_count:expected.length});
+      if(!expected.every(id=>pending.some(i=>i.id===id))) return respond({error:'The inspections awaiting a report have changed. Select Refresh Inspections and review the list before sending.'},409);
+      const selected=pending.filter(i=>expected.includes(i.id));
+      const entries=await recoverShiftEntries(client,selected,driver);
+      const shiftDate=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(selected[0].submitted_at));
+      body={...body,entries,driver:{full_name:driver.full_name,employee_id:driver.employee_id,email:driver.email},shift_date:shiftDate,time_zone:'America/Chicago',report_sequence:await shiftSequence(expected)};
+    }
     const entries = Array.isArray(body.entries) ? body.entries : [];
 
     if (!entries.length) {
@@ -746,7 +769,8 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: {
             Authorization: `Bearer ${resendApiKey}`,
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            ...(pendingRequest ? {"Idempotency-Key": `driver-pending/${result.reportId}`} : {})
           },
           body: JSON.stringify({
             from: fromEmail,
