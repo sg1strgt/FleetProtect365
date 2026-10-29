@@ -403,6 +403,38 @@
     return Number.isFinite(configured) && configured > 0 ? configured : 24;
   }
 
+  async function applyReportConfirmations(confirmations) {
+    const emailed = new Map((Array.isArray(confirmations) ? confirmations : [])
+      .filter(item => typeof item.id === 'string' && Number.isFinite(Date.parse(item.emailed_at)))
+      .map(item => [item.id,item.emailed_at]));
+    let changed = false;
+    for(const entry of state.entries) {
+      const confirmedAt = emailed.get(entry.id);
+      if(!confirmedAt) continue;
+      const existing = Date.parse(entry.end_shift_email_confirmed_at || '');
+      if(!Number.isFinite(existing) || Date.parse(confirmedAt) < existing) {
+        entry.end_shift_email_confirmed_at = confirmedAt;
+        changed = true;
+      }
+    }
+    if(changed) await dbSet('entries',state.entries);
+    await removeConfirmedEntriesAfterRetentionPeriod();
+  }
+
+  async function refreshReportConfirmations() {
+    if(!supabaseClient || !state.user?.id) return;
+    const userId = state.user.id;
+    try {
+      const {data,error} = await supabaseClient.functions.invoke(cfg.END_SHIFT_FUNCTION || 'send-end-shift',{body:{action:'list_pending'}});
+      if(error || !data?.ok) throw error || Error(data?.error || 'Report confirmation unavailable.');
+      if(state.user?.id !== userId) return;
+      await applyReportConfirmations(data.confirmed_inspections);
+    } catch(error) {
+      // Offline or failed lookups never mark entries sent or discard unconfirmed work.
+      console.warn('Report confirmation check deferred:',error);
+    }
+  }
+
   async function removeConfirmedEntriesAfterRetentionPeriod() {
     const cutoff = Date.now() - (localEntryRetentionHours() * 60 * 60 * 1000);
     const kept = state.entries.filter((entry) => {
@@ -542,6 +574,8 @@
         state.user = data.profile;
         writeJson("fp365_user", state.user);
         await Promise.all([loadActiveTrucks(), loadCompanyContent(), loadCompanyPreferences()]);
+        await syncPendingInspections();
+        await refreshReportConfirmations();
         await removeConfirmedEntriesAfterRetentionPeriod();
         navigate(data.mustChangePassword ? "passwordChange" : "home", false);
       } catch (err) {
@@ -1005,7 +1039,9 @@
     }
   }
 
-  function renderEntries() {
+  async function renderEntries() {
+    await refreshReportConfirmations();
+    if(state.screen !== "entries") return;
     header("My Entries");
     const entries = driverEntries().filter(entry => !state.hiddenEntryKeys.includes(entryViewKey(entry)));
     main.innerHTML = `<section class="card"><h2>Submitted entries</h2>
@@ -1370,6 +1406,7 @@ async function renderEndShift() {
       if(error) throw await shiftError(error);
       if(!data?.ok) throw Error(data?.error || 'Submitted inspections could not be checked.');
       if(state.screen!=='endShift' || state.user?.id!==userId) return;
+      await applyReportConfirmations(data.confirmed_inspections);
       const pending = data.inspections || [];
       main.innerHTML = `
         <section class="card">
@@ -1487,6 +1524,8 @@ async function renderEndShift() {
         await Promise.all([loadActiveTrucks(), loadCompanyContent(), loadCompanyPreferences()]);
         await removeConfirmedEntriesAfterRetentionPeriod();
         await syncPendingInspections();
+        await refreshReportConfirmations();
+        await removeConfirmedEntriesAfterRetentionPeriod();
       }
     }
     render();

@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.11.7-overnight-shifts-1";
+const CACHE_NAME = "fp365-driver-v1.11.8-report-cleanup-1";
 
 const APP_FILES = [
   "./",

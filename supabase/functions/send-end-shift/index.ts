@@ -629,8 +629,8 @@ Deno.serve(async (req) => {
       const client=createClient(url,key);
       const {data:auth,error:authError}=await client.auth.getUser(authorization.slice(7));
       if(authError || !auth.user) return respond({error:'Please sign in again before completing End of Shift.'},401);
-      const {driver,pending,sent}=await pendingDriverShift(client,auth.user.id);
-      if(body.action==='list_pending') return respond({ok:true,inspections:pending.map(i=>({id:i.id,inspection_number:i.inspection_number,submitted_at:i.submitted_at})),inspection_count:pending.length});
+      const {driver,pending,sent,confirmations}=await pendingDriverShift(client,auth.user.id);
+      if(body.action==='list_pending') return respond({ok:true,inspections:pending.map(i=>({id:i.id,inspection_number:i.inspection_number,submitted_at:i.submitted_at})),inspection_count:pending.length,confirmed_inspections:confirmations});
       const expected=Array.isArray(body.expected_inspection_ids)?sortedIds(body.expected_inspection_ids):[];
       if(!expected.length) return respond({error:'Reopen End of Shift to check submitted inspections.'},400);
       if(expected.every(id=>sent.has(id))) return respond({ok:true,already_completed:true,inspection_count:expected.length});

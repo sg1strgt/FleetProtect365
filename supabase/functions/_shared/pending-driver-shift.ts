@@ -3,7 +3,19 @@
 export const sortedIds = (ids: string[]) => [...new Set(ids)].sort();
 export function partitionPending(inspections: any[], reports: any[]) {
   const sent = new Set(reports.filter(r => r.email_status === 'sent').flatMap(r => r.inspection_ids || []));
-  return { sent, pending: inspections.filter(i => !sent.has(i.id)) };
+  const owned = new Set(inspections.map(i => i.id));
+  const confirmed = new Map<string,string>();
+  for(const report of reports) {
+    if(report.email_status !== 'sent') continue;
+    const value = report.emailed_at || report.completed_at;
+    const time = Date.parse(value || '');
+    if(!Number.isFinite(time)) continue;
+    for(const id of report.inspection_ids || []) {
+      if(!owned.has(id)) continue;
+      if(!confirmed.has(id) || time < Date.parse(confirmed.get(id)!)) confirmed.set(id,new Date(time).toISOString());
+    }
+  }
+  return { sent, pending: inspections.filter(i => !sent.has(i.id)), confirmations:[...confirmed].map(([id,emailed_at])=>({id,emailed_at})) };
 }
 async function allRows(query: (from: number, to: number) => any) {
   const rows: any[] = [];
@@ -18,7 +30,7 @@ export async function pendingDriverShift(client: any, userId: string) {
   const {data:driver,error} = await client.from('employee_profiles').select('id,company_id,full_name,employee_id,email,status,deleted_at').eq('id',userId).single();
   if(error || !driver || driver.deleted_at || driver.status !== 'active') throw Error('An active driver session is required. Please sign in again.');
   const inspections = await allRows((from,to) => client.from('inspections').select('*').eq('company_id',driver.company_id).eq('driver_id',userId).is('deleted_at',null).not('submitted_at','is',null).order('submitted_at').order('id').range(from,to));
-  const reports = await allRows((from,to) => client.from('end_shift_reports').select('id,email_status,inspection_ids').eq('company_id',driver.company_id).eq('driver_id',userId).eq('email_status','sent').order('id').range(from,to));
+  const reports = await allRows((from,to) => client.from('end_shift_reports').select('id,email_status,inspection_ids,emailed_at,completed_at').eq('company_id',driver.company_id).eq('driver_id',userId).eq('email_status','sent').order('id').range(from,to));
   return { driver,...partitionPending(inspections,reports) };
 }
 const base64 = (bytes: Uint8Array) => { let text=''; for(let i=0;i<bytes.length;i+=0x8000) text+=String.fromCharCode(...bytes.subarray(i,i+0x8000)); return btoa(text); };
