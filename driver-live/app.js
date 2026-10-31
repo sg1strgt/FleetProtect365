@@ -1400,8 +1400,6 @@ async function renderEndShift() {
       if(!supabaseClient) throw Error('Connect to the internet and sign in before completing End of Shift.');
       const failures = await syncPendingInspections();
       // Do not lose pending local uploads when the central list is used.
-      const localPending = driverEntries().filter(entry => !entry.end_shift_email_confirmed_at && (!entry.synced_to_supabase || !entry.photos_synced_to_supabase));
-
       const {data,error} = await supabaseClient.functions.invoke(cfg.END_SHIFT_FUNCTION || 'send-end-shift',{body:{action:'list_pending'}});
       if(error) throw await shiftError(error);
       if(!data?.ok) throw Error(data?.error || 'Submitted inspections could not be checked.');
@@ -1410,7 +1408,8 @@ async function renderEndShift() {
       const pending = data.inspections || [];
       const nightShift = data.shift === 'night';
       const shiftDate = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
-      if(localPending.some(entry => nightShift || (Number.isFinite(Date.parse(entry.submitted_at || entry.created_at)) && shiftDate.format(new Date(entry.submitted_at || entry.created_at)) === shiftDate.format(new Date())))) throw Error(failures.find(({entry})=>localPending.some(item=>item.id===entry.id))?.error?.message || 'An inspection or its photos are still uploading. Keep the app open, then select Refresh Inspections.');
+      const localPending = driverEntries().filter(entry => !entry.end_shift_email_confirmed_at && (!entry.synced_to_supabase || !entry.photos_synced_to_supabase)).filter(entry => nightShift || (Number.isFinite(Date.parse(entry.submitted_at || entry.created_at)) && shiftDate.format(new Date(entry.submitted_at || entry.created_at)) === shiftDate.format(new Date())));
+      if(localPending.length) throw Error(failures.find(({entry})=>localPending.some(item=>item.id===entry.id))?.error?.message || 'An inspection or its photos are still uploading. Keep the app open, then select Refresh Inspections.');
       main.innerHTML = `
         <section class="card">
           <h2>End-of-shift checklist</h2>
