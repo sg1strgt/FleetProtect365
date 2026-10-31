@@ -26,12 +26,19 @@ async function allRows(query: (from: number, to: number) => any) {
     if(!data || data.length<500) return rows;
   }
 }
+export function eligibleShiftInspections(inspections: any[], shift: string, now = new Date(), timeZone = 'America/Chicago') {
+  if (shift === 'night') return inspections;
+  const date = new Intl.DateTimeFormat('en-CA', {timeZone, year:'numeric', month:'2-digit', day:'2-digit'});
+  const today = date.format(now);
+  return inspections.filter(i => Number.isFinite(Date.parse(i.submitted_at)) && date.format(new Date(i.submitted_at)) === today);
+}
 export async function pendingDriverShift(client: any, userId: string) {
-  const {data:driver,error} = await client.from('employee_profiles').select('id,company_id,full_name,employee_id,email,status,deleted_at').eq('id',userId).single();
+  const {data:driver,error} = await client.from('employee_profiles').select('id,company_id,full_name,employee_id,email,status,deleted_at,shift').eq('id',userId).single();
   if(error || !driver || driver.deleted_at || driver.status !== 'active') throw Error('An active driver session is required. Please sign in again.');
   const inspections = await allRows((from,to) => client.from('inspections').select('*').eq('company_id',driver.company_id).eq('driver_id',userId).is('deleted_at',null).not('submitted_at','is',null).order('submitted_at').order('id').range(from,to));
   const reports = await allRows((from,to) => client.from('end_shift_reports').select('id,email_status,inspection_ids,emailed_at,completed_at').eq('company_id',driver.company_id).eq('driver_id',userId).eq('email_status','sent').order('id').range(from,to));
-  return { driver,...partitionPending(inspections,reports) };
+  const result = partitionPending(inspections,reports);
+  return { driver,...result,pending:eligibleShiftInspections(result.pending,driver.shift) };
 }
 const base64 = (bytes: Uint8Array) => { let text=''; for(let i=0;i<bytes.length;i+=0x8000) text+=String.fromCharCode(...bytes.subarray(i,i+0x8000)); return btoa(text); };
 export async function recoverShiftEntries(client: any, inspections: any[], driver: any) {

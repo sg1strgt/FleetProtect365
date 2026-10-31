@@ -1401,18 +1401,21 @@ async function renderEndShift() {
       const failures = await syncPendingInspections();
       // Do not lose pending local uploads when the central list is used.
       const localPending = driverEntries().filter(entry => !entry.end_shift_email_confirmed_at && (!entry.synced_to_supabase || !entry.photos_synced_to_supabase));
-      if(localPending.length) throw Error(failures.find(({entry})=>localPending.some(item=>item.id===entry.id))?.error?.message || 'An inspection or its photos are still uploading. Keep the app open, then select Refresh Inspections.');
+
       const {data,error} = await supabaseClient.functions.invoke(cfg.END_SHIFT_FUNCTION || 'send-end-shift',{body:{action:'list_pending'}});
       if(error) throw await shiftError(error);
       if(!data?.ok) throw Error(data?.error || 'Submitted inspections could not be checked.');
       if(state.screen!=='endShift' || state.user?.id!==userId) return;
       await applyReportConfirmations(data.confirmed_inspections);
       const pending = data.inspections || [];
+      const nightShift = data.shift === 'night';
+      const shiftDate = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'});
+      if(localPending.some(entry => nightShift || (Number.isFinite(Date.parse(entry.submitted_at || entry.created_at)) && shiftDate.format(new Date(entry.submitted_at || entry.created_at)) === shiftDate.format(new Date())))) throw Error(failures.find(({entry})=>localPending.some(item=>item.id===entry.id))?.error?.message || 'An inspection or its photos are still uploading. Keep the app open, then select Refresh Inspections.');
       main.innerHTML = `
         <section class="card">
           <h2>End-of-shift checklist</h2>
           <p class="field-help">${pending.length} submitted inspection${pending.length===1?'':'s'} awaiting a shift report.</p>
-          ${pending.length ? `<p>Review the inspections for this shift, including any submitted before midnight. Uncheck inspections that belong to another shift.</p>
+          ${pending.length ? `<p>${nightShift ? 'Review the inspections for this shift, including any submitted before midnight. Uncheck inspections that belong to another shift.' : 'Review today’s inspections for your day shift.'}</p>
           ${pending.map(entry=>`<label class="check"><input class="shift-inspection" type="checkbox" value="${esc(entry.id)}" checked><span>${esc(entry.inspection_number || 'Inspection')} · ${esc(new Date(entry.submitted_at).toLocaleString())}</span></label>`).join('')}` : '<div class="alert">No submitted inspections are awaiting a shift report. Inspections already emailed, including reports sent by Admin, are excluded.</div>'}
           ${items.map(x=>`<label class="check"><input class="shift" type="checkbox"><span>${esc(x)}</span></label>`).join('')}
         </section>

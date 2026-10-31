@@ -146,6 +146,7 @@
     }
     currentUser = data;
     $('editUserId').value = data.id;
+    $('editShift').value = data.shift === 'night' ? 'night' : 'day';
     $('editDisplayName').value = data.display_name || '';
     $('editFullName').value = data.full_name || '';
     $('editEmployeeId').value = data.employee_id || '';
@@ -200,6 +201,7 @@
       ? `Display name: ${data.display_name}` : '';
     $('viewEmployeeId').textContent = data.employee_id || 'Not entered';
     $('viewRole').textContent = roleLabel(data.role);
+    $('viewShift').textContent = data.shift === 'night' ? 'Night' : 'Day';
     $('viewStatus').textContent = roleLabel(data.status);
     $('viewTesterAccess').textContent = data.is_tester ? 'Yes' : 'No';
     $('viewPhone').textContent = data.phone || 'Not entered';
@@ -336,6 +338,7 @@
       phone: $('driverPhone').value.trim(),
       email: $('driverEmail').value.trim().toLowerCase(),
       role: $('driverRole').value,
+      shift: $('driverShift').value,
       status: $('driverStatus').value,
       password,
       forcePasswordChange: true,
@@ -414,6 +417,7 @@
       phone: $('editPhone').value.trim(),
       email: $('editEmail').value.trim().toLowerCase(),
       role: $('editRole').value,
+      shift: $('editShift').value,
       status: $('editStatus').value,
       password,
       forcePasswordChange: $('editForcePasswordChange').checked,

@@ -59,6 +59,7 @@ export default {
 
     const body = await req.json();
     const action = String(body.action || "");
+    if (body.shift !== undefined && !["day", "night"].includes(body.shift)) return json({ok:false,error:"Shift must be Day or Night."},400);
 
     if (action === "create_user") {
       const displayName = String(body.displayName || "").trim();
@@ -117,6 +118,7 @@ export default {
         drivers_license_state: body.driversLicenseState || null,
         drivers_license_expires: body.driversLicenseExpires || null,
         medical_card_expires: body.medicalCardExpires || null,
+        shift: body.shift === "night" ? "night" : "day",
         created_by: callerProfile.id,
         updated_by: callerProfile.id,
       });
@@ -238,6 +240,7 @@ export default {
         drivers_license_state: body.driversLicenseState || null,
         drivers_license_expires: body.driversLicenseExpires || null,
         medical_card_expires: body.medicalCardExpires || null,
+        shift: body.shift === undefined ? (target.shift || "day") : body.shift,
         updated_by: callerProfile.id,
         updated_at: new Date().toISOString(),
       };
