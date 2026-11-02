@@ -5,6 +5,7 @@
   const categories = ['General','Important','Urgent','Escalate','Resolved','Completed','Other'];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   let rows = [], selected = null, editing = false, busy = false, companyId, updateMode = false;
+  const photos = window.FP365_CREATE_NOTE_PHOTOS({client:s,onChange:controls,onMessage:message});
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const displayDate = iso => { const [y,m,d] = iso.split('-'); return `${m}/${d}/${y}`; };
   function parseDate(value) {
@@ -16,7 +17,7 @@
   }
   function message(value) { $('notesMsg').textContent = value; }
   function controls() {
-    $('saveNote').disabled = busy || !editing;
+    $('saveNote').disabled = busy || !editing || photos.processing;
     $('newNote').disabled = busy;
     $('notesSort').disabled = busy || editing; $('notesCategory').disabled = busy || editing;
     $('editNote').disabled = busy || editing || !selected;
@@ -25,6 +26,7 @@
     $('cancelNote').disabled = busy;
     $('notesList').querySelectorAll('input[name=selectedNote]').forEach(el => el.disabled = busy || editing);
     $('noteEditor').querySelectorAll('input,select,textarea').forEach(el => el.disabled = busy);
+    photos.setBusy(busy);
     $('exportNotes').disabled = busy || !filtered().length;
     $('emailNotes').disabled = busy || editing || !filtered().length;
   }
@@ -53,21 +55,22 @@
     $('noteSelection').textContent = chosen ? `Selected: ${displayDate(chosen.note_date)} · ${chosen.category}` : 'Select a saved note to edit it or add an update.';
     $('notesList').innerHTML = visible.length ? visible.map(r => {
       const updates = updatesFor(r), originalCategory = updates[0]?.previous_category;
-      return `<article class="note-record" data-note-id="${esc(r.id)}"><label><input type="radio" name="selectedNote" value="${esc(r.id)}" ${r.id===selected?'checked':''} ${editing||busy?'disabled':''}><strong>${esc(displayDate(r.note_date))}</strong><span class="note-category">${esc(r.category)}</span></label>${originalCategory ? `<small>Original category: ${esc(originalCategory)}</small>` : ''}<p>${esc(r.body)}</p><div class="note-updates">${updates.map(u => `<section class="note-update"><h4>${esc(updateText(u))}</h4><p>${esc(u.body)}</p></section>`).join('')}</div></article>`;
+      return `<article class="note-record" data-note-id="${esc(r.id)}"><label><input type="radio" name="selectedNote" value="${esc(r.id)}" ${r.id===selected?'checked':''} ${editing||busy?'disabled':''}><strong>${esc(displayDate(r.note_date))}</strong><span class="note-category">${esc(r.category)}</span></label>${originalCategory ? `<small>Original category: ${esc(originalCategory)}</small>` : ''}<p>${esc(r.body)}</p>${photos.gallery((r.photos || []).filter(p=>!p.update_id))}<div class="note-updates">${updates.map(u => `<section class="note-update"><h4>${esc(updateText(u))}</h4><p>${esc(u.body)}</p>${photos.gallery((r.photos || []).filter(p=>p.update_id===u.id))}</section>`).join('')}</div></article>`;
     }).join('') : '<p>No notes match these filters.</p>';
     if(editing && updateMode) { const card = [...$('notesList').children].find(el => el.dataset.noteId===selected); card?.appendChild($('noteEditor')); }
     controls();
   }
   async function load() {
     await context();
-    const {data,error} = await s.from('admin_notes').select('*,updates:admin_note_updates(*)').eq('company_id',companyId).order('note_date',{ascending:false});
+    const {data,error} = await s.from('admin_notes').select('*,updates:admin_note_updates(*),photos:admin_note_photos(*)').eq('company_id',companyId).order('note_date',{ascending:false});
     if(error) throw error;
-    rows = data || []; render();
+    rows = data || []; await photos.hydrate(rows); render();
     controls();
   }
-  function closeEditor() { editing = false; updateMode = false; $('notesList').before($('noteEditor')); $('noteEditor').classList.add('hidden'); render(); }
+  function closeEditor() { photos.reset(); editing = false; updateMode = false; $('notesList').before($('noteEditor')); $('noteEditor').classList.add('hidden'); render(); }
   function openEditor(row, addingUpdate = false) {
     if(editing && !confirm('Discard the unsaved note changes?')) return;
+    photos.begin(row,addingUpdate);
     selected = row?.id || null; editing = true; updateMode = addingUpdate;
     $('noteEditorTitle').textContent = updateMode ? 'Add Update' : row ? 'Edit Note' : 'New Note';
     $('noteDate').value = displayDate(updateMode ? today() : row?.note_date || today());
@@ -77,27 +80,30 @@
     $('noteEditor').classList.remove('hidden'); message(''); render(); if(updateMode) { const card = [...$('notesList').children].find(el => el.dataset.noteId === selected); card?.appendChild($('noteEditor')); } else $('notesList').before($('noteEditor')); $('noteBody').focus();
   }
   async function save(event) {
-    event?.preventDefault(); if(busy || !editing) return;
+    event?.preventDefault(); if(busy || !editing || photos.processing) return;
     try {
       const date = parseDate($('noteDate').value.trim()), body = $('noteBody').value;
       if(!body.trim()) throw Error('Enter a note before saving.');
       if(body.length>3000) throw Error('Notes must be 3,000 characters or fewer.');
       busy = true; controls(); await context();
-      if(updateMode) {
-        const {data,error} = await s.from('admin_note_updates').insert({note_id:selected,update_date:date,category:$('noteCategory').value,body}).select().single();
-        if(error) throw error;
-        const row = rows.find(r => r.id === selected);
-        row.updates = [...(row.updates || []),data]; row.category = data.category;
-        // Keep the saved note in view if its new category no longer matches the filter.
-        if($('notesCategory').value && $('notesCategory').value !== row.category) $('notesCategory').value = '';
-        closeEditor(); message('Update saved.');
+      const wasUpdate = updateMode;
+      const attachmentPayload = await photos.upload(companyId);
+      const {data:result,error:saveError} = await s.rpc('save_admin_note_with_photos',{
+        ...attachmentPayload,save_mode:updateMode?'update':selected?'edit':'create',
+        target_date:date,target_category:$('noteCategory').value,target_body:body
+      });
+      if(saveError) throw saveError;
+      photos.committed(); selected=result.note_id;
+      // Refresh the committed note and immutable history as one server result.
+      const {data:saved,error:readError}=await s.from('admin_notes').select('*,updates:admin_note_updates(*),photos:admin_note_photos(*)').eq('id',result.note_id).eq('company_id',companyId).single();
+      photos.cleanup(result.removed_paths || []);
+      if(readError) {
+        closeEditor(); await load(); selected=result.note_id; render(); message('Note and photos saved.');
       } else {
-        const payload = {note_date:date,category:$('noteCategory').value,body,updated_at:new Date().toISOString()};
-        const query = selected ? s.from('admin_notes').update(payload).eq('id',selected).eq('company_id',companyId) : s.from('admin_notes').insert({...payload,company_id:companyId});
-        const {data,error} = await query.select().single(); if(error) throw error;
-        const priorUpdates = rows.find(r => r.id===data.id)?.updates || [];
-        rows = rows.filter(r => r.id!==data.id); rows.push({...data,updates:priorUpdates}); selected = data.id;
-        closeEditor(); message('Note saved.');
+        rows=rows.filter(r=>r.id!==saved.id); rows.push(saved);
+        if($('notesCategory').value && $('notesCategory').value!==saved.category) $('notesCategory').value='';
+        await photos.hydrate([saved]);
+        closeEditor(); message(wasUpdate?'Update and photos saved.':'Note and photos saved.');
       }
     } catch(error) { message(`Unable to save note: ${error.message}`); }
     finally { busy = false; render(); }
@@ -108,6 +114,7 @@
       busy = true; controls(); await context();
       const {data,error} = await s.from('admin_notes').delete().eq('id',selected).eq('company_id',companyId).select('id').single();
       if(error) throw error;
+      photos.cleanup((rows.find(r=>r.id===data.id)?.photos || []).map(p=>p.storage_path));
       rows = rows.filter(r => r.id!==data.id); selected = null; message('Note deleted.');
     } catch(error) { message(`Unable to delete note: ${error.message}`); }
     finally { busy = false; render(); }
@@ -152,7 +159,7 @@
   $('cancelNote').onclick = () => { if(confirm('Discard the unsaved note changes?')) { closeEditor(); message('Changes discarded.'); } };
   $('noteBody').oninput = () => { $('noteCount').textContent = `${$('noteBody').value.length} / 3000`; };
   $('notesList').onchange = event => { if(busy || editing) return; if(event.target.name==='selectedNote') { selected = event.target.value; render(); } };
-  $('notesList').onclick = event => { if(busy || editing || event.target.closest('label,input,button,form')) return; const card = event.target.closest('[data-note-id]'); if(card) { selected = card.dataset.noteId; render(); } };
+  $('notesList').onclick = event => { const thumb=event.target.closest('[data-note-photo]'); if(thumb) { photos.expand(rows.flatMap(r=>r.photos || []).find(p=>p.id===thumb.dataset.notePhoto)); return; } if(busy || editing || event.target.closest('label,input,button,form')) return; const card = event.target.closest('[data-note-id]'); if(card) { selected = card.dataset.noteId; render(); } };
   $('notesSort').onchange = render; $('notesCategory').onchange = render; $('exportNotes').onclick = exportPdf;
   document.querySelector('nav [data-view="notes"]').addEventListener('click',async () => {
     document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='notes'));
@@ -164,6 +171,6 @@
     finally { busy = false; render(); }
   });
   document.querySelectorAll('nav [data-view]').forEach(button => button.addEventListener('click', () => { if(button.dataset.view!=='notes') $('notes').classList.add('hidden'); }));
-  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { $('notes').classList.add('hidden'); rows=[]; selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
+  s.auth.onAuthStateChange(event => { if(event==='SIGNED_OUT') { photos.clear(); $('notes').classList.add('hidden'); rows=[]; selected=null; companyId=null; editing=false; $('noteEditor').reset(); $('noteEditor').classList.add('hidden'); render(); } });
   controls();
 })();
