@@ -10,3 +10,11 @@
 #calendar .calendar-bold,#calendar .calendar-bold h3{font-weight:800}
 .calendar-chip-label,.calendar-status-label{font-size:.8em}
 .calendar-status-label{display:inline-block;margin-bottom:6px;border:1px solid currentColor;border-radius:4px;padding:1px 6px}
+#calendar .calendar-state-important[style]{background:var(--calendar-custom-bg);color:var(--calendar-custom-text);border-color:var(--calendar-custom-text)}
+.calendar-palette{display:grid;gap:9px;margin:10px 0}
+.calendar-swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(34px,1fr));gap:6px;max-width:380px}
+.calendar-editor .calendar-swatches button{background:var(--swatch);border:1px solid #7e8ca0;border-radius:5px;min-height:34px;padding:0}
+.calendar-swatches button[aria-pressed=true],#calendarColorDefault[aria-pressed=true]{outline:2px solid #2567bc;outline-offset:2px}
+.calendar-color-tools{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.calendar-editor .calendar-color-tools label{display:inline;margin:0}
+.calendar-editor .calendar-color-tools input[type=color]{width:48px;height:40px;padding:3px;cursor:pointer}

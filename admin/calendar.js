@@ -32,7 +32,35 @@
   try{const {data,error}=await s.functions.invoke('calendar-reminders',{body:{action:'capabilities'}});if(error||!data?.ok)throw error||Error(data?.error);capabilities=data;}
   catch{capabilities={};}
  }
- const colors=['purple','blue','orange','pink'];
+ const legacyColors={purple:'#eee2ff',blue:'#dceeff',orange:'#ffe5cc',pink:'#ffe1f1'};
+ const palette=[
+  ['Black','#000000'],['Dark gray','#595959'],['Gray','#a6a6a6'],['Light gray','#e7e6e6'],['White','#ffffff'],
+  ['Dark red','#a61c20'],['Red','#e53935'],['Orange','#f59e0b'],['Yellow','#ffdf54'],['Green','#4caf50'],
+  ['Teal','#009688'],['Light blue','#5b9bd5'],['Blue','#2f5597'],['Purple','#7030a0'],['Pink','#e35a9d'],
+  ['Light red','#ffd9da'],['Light orange','#ffe5cc'],['Light yellow','#fff2b3'],['Light green','#dcf5e5'],
+  ['Light teal','#ccece6'],['Pale blue','#dceeff'],['Lavender','#eee2ff'],['Light pink','#ffe1f1']
+ ];
+ const isHex=value=>/^#[0-9a-f]{6}$/i.test(value||'');
+ function colorAttributes(row,state){
+  if(state!=='important'||!isHex(row.important_color))return '';
+  const color=row.important_color;
+  const [red,green,blue]=color.slice(1).match(/../g).map(pair=>{
+   const channel=parseInt(pair,16)/255;
+   return channel<=0.04045?channel/12.92:((channel+0.055)/1.055)**2.4;
+  });
+  const luminance=0.2126*red+0.7152*green+0.0722*blue;
+  return ` style="--calendar-custom-bg:${color};--calendar-custom-text:${luminance>0.179?'#000':'#fff'}"`;
+ }
+ function setImportantColor(value){
+  $('calendarImportantColor').value=value;
+  const color=isHex(value)?value.toLowerCase():legacyColors[value]||'';
+  $('calendarCustomColor').value=color||'#eee2ff';
+  $('calendarColorChoice').textContent=color?color.toUpperCase():'Default';
+  $('calendarColorDefault').setAttribute('aria-pressed',String(!color));
+  $('calendarColorSwatches').querySelectorAll('button').forEach(button=>{
+   button.setAttribute('aria-pressed',String(button.dataset.color===color));
+  });
+ }
  const statusLabels={completed:'Completed',important:'Important',reminder:'Reminder',upcoming:'Due within 7 days',due:'Due today',overdue:'Overdue'};
  function noteStatus(row,currentDate){
   if(row.completed)return 'completed';
@@ -41,7 +69,7 @@
  }
  function statusStyle(row,state){
   const important=row.display_status==='important';
-  const color=state==='important'&&colors.includes(row.important_color)?' calendar-color-'+row.important_color:'';
+  const color=state==='important'&&Object.hasOwn(legacyColors,row.important_color)?' calendar-color-'+row.important_color:'';
   return ' calendar-state-'+state+color+(important&&row.important_bold?' calendar-bold':'');
  }
  function render(){
@@ -56,14 +84,14 @@
    const notes=rows.filter(row=>row.note_date===value),enabled=D.supported(value),outside=Number(value.slice(5,7))-1!==month;
    return `<button type="button" role="gridcell" class="calendar-cell${outside?' outside':''}${value===selected?' selected':''}${value===currentDate?' today':''}" data-calendar-day="${value}" ${!enabled?'disabled':''} aria-selected="${value===selected}" aria-label="${esc(display(value))}, ${notes.length} note${notes.length===1?'':'s'}"><span class="calendar-day-number">${Number(value.slice(8))}</span>${notes.slice(0,2).map(row=>{
     const state=noteStatus(row,currentDate),label=statusLabels[state];
-    return `<span class="calendar-chip${statusStyle(row,state)}">${label?`<span class="calendar-chip-label">${label}: </span>`:''}${row.notify_email||row.notify_text?'<span aria-label="Reminder">◷</span> ':''}${esc(row.title)}</span>`;}).join('')}${notes.length>2?`<span class="calendar-more">+${notes.length-2} more</span>`:''}<span class="calendar-mobile-count">${notes.length?`${notes.length} note${notes.length===1?'':'s'}`:''}</span></button>`;
+    return `<span class="calendar-chip${statusStyle(row,state)}"${colorAttributes(row,state)}>${label?`<span class="calendar-chip-label">${label}: </span>`:''}${row.notify_email||row.notify_text?'<span aria-label="Reminder">◷</span> ':''}${esc(row.title)}</span>`;}).join('')}${notes.length>2?`<span class="calendar-more">+${notes.length-2} more</span>`:''}<span class="calendar-mobile-count">${notes.length?`${notes.length} note${notes.length===1?'':'s'}`:''}</span></button>`;
   }).join('');
   $('calendarDayTitle').textContent=display(selected,{weekday:'long',month:'long',day:'numeric'});
   const notes=rows.filter(row=>row.note_date===selected).sort((a,b)=>(a.note_time||'').localeCompare(b.note_time||'')||a.created_at.localeCompare(b.created_at));
   $('calendarDayCount').textContent=`${notes.length} note${notes.length===1?'':'s'} · Central time`;
   $('calendarDayNotes').innerHTML=loading?'<p class="calendar-empty">Loading notes…</p>':notes.length?notes.map(row=>{
    const state=noteStatus(row,currentDate),label=statusLabels[state];
-   return `<article class="calendar-note${statusStyle(row,state)}"><div class="calendar-note-top"><span>${esc(clock(row.note_time))}</span><div><button type="button" data-calendar-edit="${row.id}">Edit</button><button type="button" data-calendar-delete="${row.id}" class="calendar-delete">Delete</button></div></div><h3>${esc(row.title)}</h3>${label?`<span class="calendar-status-label">${label}</span>`:''}${row.body?`<p class="calendar-note-body">${esc(row.body)}</p>`:''}${row.completion_notes?`<strong>Completion notes</strong><p class="calendar-note-body">${esc(row.completion_notes)}</p>`:''}${reminderSummary(row)}</article>`;}).join(''):'<div class="calendar-empty"><strong>No notes for this day</strong><p>Add a note, appointment, or reminder.</p></div>';
+   return `<article class="calendar-note${statusStyle(row,state)}"${colorAttributes(row,state)}><div class="calendar-note-top"><span>${esc(clock(row.note_time))}</span><div><button type="button" data-calendar-edit="${row.id}">Edit</button><button type="button" data-calendar-delete="${row.id}" class="calendar-delete">Delete</button></div></div><h3>${esc(row.title)}</h3>${label?`<span class="calendar-status-label">${label}</span>`:''}${row.body?`<p class="calendar-note-body">${esc(row.body)}</p>`:''}${row.completion_notes?`<strong>Completion notes</strong><p class="calendar-note-body">${esc(row.completion_notes)}</p>`:''}${reminderSummary(row)}</article>`;}).join(''):'<div class="calendar-empty"><strong>No notes for this day</strong><p>Add a note, appointment, or reminder.</p></div>';
  }
  function reminderSummary(row){
   if(!row.notify_email&&!row.notify_text)return '';
@@ -104,7 +132,7 @@
   $('calendarNoteDate').value=row?.note_date||selected;$('calendarNoteTime').value=row?.note_time?.slice(0,5)||'';
   $('calendarNoteTitle').value=row?.title||'';$('calendarNoteBody').value=row?.body||'';
   $('calendarDisplayStatus').value=row?.display_status||'default';
-  $('calendarImportantColor').value=row?.important_color||'';
+  setImportantColor(row?.important_color||'');
   $('calendarImportantBold').checked=row?.important_bold||false;
   $('calendarCompleted').checked=row?.completed||false;
   $('calendarCompletionNotes').value=row?.completion_notes||'';
@@ -159,6 +187,15 @@
  $('calendarUndo').onclick=async()=>{if(!lastDeleted)return;const {error}=await s.from('admin_calendar_notes').update({deleted_at:null}).eq('id',lastDeleted.id).eq('company_id',profile.company_id).eq('revision',lastDeleted.revision).select('id').single();if(error){message(`Unable to restore: ${error.message}`);return;}lastDeleted=null;$('calendarUndo').classList.add('hidden');await load();message('Calendar note restored. Future reminders were restored too.');};
  $('calendarNoteForm').onsubmit=save;$('calendarCloseEditor').onclick=$('calendarCancel').onclick=closeEditor;
  $('calendarNoteDialog').addEventListener('cancel',event=>{event.preventDefault();closeEditor();});
+ $('calendarColorSwatches').innerHTML=palette.map(([label,color])=>
+  `<button type="button" data-color="${color}" style="--swatch:${color}" aria-label="${label}" title="${label}" aria-pressed="false"></button>`
+ ).join('');
+ $('calendarColorSwatches').onclick=event=>{
+  const swatch=event.target.closest('[data-color]');
+  if(swatch)setImportantColor(swatch.dataset.color);
+ };
+ $('calendarColorDefault').onclick=()=>setImportantColor('');
+ $('calendarCustomColor').oninput=$('calendarCustomColor').onchange=event=>setImportantColor(event.target.value);
  $('calendarDisplayStatus').onchange=statusControls;
  $('calendarReminderPreset').onchange=$('calendarNotifyEmail').onchange=reminderControls;
  $('calendarNoteBody').oninput=()=>{$('calendarBodyCount').textContent=`${$('calendarNoteBody').value.length} / 5000`;};
