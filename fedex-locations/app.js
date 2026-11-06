@@ -26,10 +26,10 @@
     const current = generation;
     try {
       const {data: profile, error: profileError} = await client.from("employee_profiles")
-        .select("company_id,status,deleted_at,password_reset_required").eq("id",sessionId).maybeSingle();
+        .select("company_id,status,role,deleted_at,password_reset_required").eq("id",sessionId).maybeSingle();
       if (profileError) throw profileError;
       if (current !== generation) return;
-      if (!profile || profile.status !== "active" || profile.deleted_at || profile.password_reset_required) {
+      if (!profile || profile.status !== "active" || profile.role === "user" || profile.deleted_at || profile.password_reset_required) {
         clear();
         await client.auth.signOut({scope:"local"});
         status.textContent = "An active driver account is required. Complete any password reset in the Driver App.";

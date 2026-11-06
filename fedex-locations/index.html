@@ -21,14 +21,14 @@
 </header>
 <main class="fedex-driver-body">
 <p id="status" role="status"></p>
-<form id="login">
+<form id="login" method="post">
 <h1>Driver sign-in</h1>
 <p>Use your existing FleetProtect365 Driver App credentials.</p>
 <label for="employee">Employer ID</label>
 <input id="employee" name="username" autocomplete="username" required>
 <label for="password">Password</label>
 <input id="password" name="password" type="password" autocomplete="current-password" required>
-<button id="submit">Sign in</button>
+<button id="submit" disabled>Sign in</button>
 <a href="../driver-live/">Open Driver App</a>
 </form>
 <section id="fedexDriverBody" hidden aria-label="Location lookup"></section>
