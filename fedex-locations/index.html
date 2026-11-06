@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#4d148c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="../driver-live/fedex-locations.css">
+<link rel="stylesheet" href="app.css">
+<title>FedEx Locations | FleetProtect365</title>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="../driver-live/config.js"></script>
+<script defer src="app.js"></script>
+</head>
+<body>
+<header class="fedex-driver-header">
+<div><div class="fedex-wordmark"><span>Fed</span><b>Ex</b> Locations</div><small>Wade Freight Services</small></div>
+<nav id="controls" hidden><button id="refresh" type="button">Refresh</button><button id="logout" type="button">Sign out</button></nav>
+</header>
+<main class="fedex-driver-body">
+<p id="status" role="status"></p>
+<form id="login">
+<h1>Driver sign-in</h1>
+<p>Use your existing FleetProtect365 Driver App credentials.</p>
+<label for="employee">Employer ID</label>
+<input id="employee" name="username" autocomplete="username" required>
+<label for="password">Password</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required>
+<button id="submit">Sign in</button>
+<a href="../driver-live/">Open Driver App</a>
+</form>
+<section id="fedexDriverBody" hidden aria-label="Location lookup"></section>
+</main>
+<dialog id="fedexDriverPhoto" class="fedex-driver-photo"><button id="fedexDriverPhotoClose" type="button" aria-label="Close photo">×</button><img id="fedexDriverPhotoImage" alt="Location reference photo"></dialog>
+</body>
+</html>
