@@ -6,7 +6,7 @@
  const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
  const display=(value,options={weekday:'long',month:'long',day:'numeric',year:'numeric'})=>new Intl.DateTimeFormat('en-US',{...options,timeZone:'UTC'}).format(D.date(value));
  const clock=value=>{if(!value)return 'All day';const [h,m]=value.split(':').map(Number);return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;};
- let selected=D.supported(today())?today():'2026-01-01',year=Number(selected.slice(0,4)),month=Number(selected.slice(5,7))-1,view='month',rows=[],profile,capabilities={},loading=false,saving=false,request=0,editId=null,editRevision=null,original='',lastDeleted=null;
+ let selected=D.supported(today())?today():'2026-01-01',year=Number(selected.slice(0,4)),month=Number(selected.slice(5,7))-1,view='month',rows=[],profile,capabilities={},loading=false,saving=false,request=0,editId=null,editRevision=null,original='',lastDeleted=null,editUpdatedAt=null,originalNotification='',renderedDate='';
  const message=text=>{$('calendarMsg').textContent=text;};
  async function context(){
   const {data,error}=await s.auth.getSession();if(error)throw error;
@@ -32,7 +32,20 @@
   try{const {data,error}=await s.functions.invoke('calendar-reminders',{body:{action:'capabilities'}});if(error||!data?.ok)throw error||Error(data?.error);capabilities=data;}
   catch{capabilities={};}
  }
+ const colors=['purple','blue','orange','pink'];
+ const statusLabels={completed:'Completed',important:'Important',reminder:'Reminder',upcoming:'Due within 7 days',due:'Due today',overdue:'Overdue'};
+ function noteStatus(row,currentDate){
+  if(row.completed)return 'completed';
+  if(row.display_status==='reminder')return D.reminderState(row.note_date,currentDate);
+  return row.display_status==='important'?'important':'default';
+ }
+ function statusStyle(row,state){
+  const important=row.display_status==='important';
+  const color=state==='important'&&colors.includes(row.important_color)?' calendar-color-'+row.important_color:'';
+  return ' calendar-state-'+state+color+(important&&row.important_bold?' calendar-bold':'');
+ }
  function render(){
+  const currentDate=renderedDate=today();
   $('calendarMonth').value=String(month);$('calendarYear').value=String(year);
   $('calendarMonthLabel').textContent=new Intl.DateTimeFormat('en-US',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(Date.UTC(year,month,1)));
   $('calendarPrev').disabled=loading||(year===2026&&month===0);$('calendarNext').disabled=loading||(year===2027&&month===11);
@@ -41,12 +54,16 @@
   $('calendarLayout').classList.toggle('calendar-day-only',view==='day');
   $('calendarGrid').innerHTML=D.monthCells(year,month).map(value=>{
    const notes=rows.filter(row=>row.note_date===value),enabled=D.supported(value),outside=Number(value.slice(5,7))-1!==month;
-   return `<button type="button" role="gridcell" class="calendar-cell${outside?' outside':''}${value===selected?' selected':''}${value===today()?' today':''}" data-calendar-day="${value}" ${!enabled?'disabled':''} aria-selected="${value===selected}" aria-label="${esc(display(value))}, ${notes.length} note${notes.length===1?'':'s'}"><span class="calendar-day-number">${Number(value.slice(8))}</span>${notes.slice(0,2).map(row=>`<span class="calendar-chip">${row.notify_email||row.notify_text?'<span aria-label="Reminder">◷</span> ':''}${esc(row.title)}</span>`).join('')}${notes.length>2?`<span class="calendar-more">+${notes.length-2} more</span>`:''}<span class="calendar-mobile-count">${notes.length?`${notes.length} note${notes.length===1?'':'s'}`:''}</span></button>`;
+   return `<button type="button" role="gridcell" class="calendar-cell${outside?' outside':''}${value===selected?' selected':''}${value===currentDate?' today':''}" data-calendar-day="${value}" ${!enabled?'disabled':''} aria-selected="${value===selected}" aria-label="${esc(display(value))}, ${notes.length} note${notes.length===1?'':'s'}"><span class="calendar-day-number">${Number(value.slice(8))}</span>${notes.slice(0,2).map(row=>{
+    const state=noteStatus(row,currentDate),label=statusLabels[state];
+    return `<span class="calendar-chip${statusStyle(row,state)}">${label?`<span class="calendar-chip-label">${label}: </span>`:''}${row.notify_email||row.notify_text?'<span aria-label="Reminder">◷</span> ':''}${esc(row.title)}</span>`;}).join('')}${notes.length>2?`<span class="calendar-more">+${notes.length-2} more</span>`:''}<span class="calendar-mobile-count">${notes.length?`${notes.length} note${notes.length===1?'':'s'}`:''}</span></button>`;
   }).join('');
   $('calendarDayTitle').textContent=display(selected,{weekday:'long',month:'long',day:'numeric'});
   const notes=rows.filter(row=>row.note_date===selected).sort((a,b)=>(a.note_time||'').localeCompare(b.note_time||'')||a.created_at.localeCompare(b.created_at));
   $('calendarDayCount').textContent=`${notes.length} note${notes.length===1?'':'s'} · Central time`;
-  $('calendarDayNotes').innerHTML=loading?'<p class="calendar-empty">Loading notes…</p>':notes.length?notes.map(row=>`<article class="calendar-note"><div class="calendar-note-top"><span>${esc(clock(row.note_time))}</span><div><button type="button" data-calendar-edit="${row.id}">Edit</button><button type="button" data-calendar-delete="${row.id}" class="calendar-delete">Delete</button></div></div><h3>${esc(row.title)}</h3>${row.body?`<p class="calendar-note-body">${esc(row.body)}</p>`:''}${reminderSummary(row)}</article>`).join(''):'<div class="calendar-empty"><strong>No notes for this day</strong><p>Add a note, appointment, or reminder.</p></div>';
+  $('calendarDayNotes').innerHTML=loading?'<p class="calendar-empty">Loading notes…</p>':notes.length?notes.map(row=>{
+   const state=noteStatus(row,currentDate),label=statusLabels[state];
+   return `<article class="calendar-note${statusStyle(row,state)}"><div class="calendar-note-top"><span>${esc(clock(row.note_time))}</span><div><button type="button" data-calendar-edit="${row.id}">Edit</button><button type="button" data-calendar-delete="${row.id}" class="calendar-delete">Delete</button></div></div><h3>${esc(row.title)}</h3>${label?`<span class="calendar-status-label">${label}</span>`:''}${row.body?`<p class="calendar-note-body">${esc(row.body)}</p>`:''}${row.completion_notes?`<strong>Completion notes</strong><p class="calendar-note-body">${esc(row.completion_notes)}</p>`:''}${reminderSummary(row)}</article>`;}).join(''):'<div class="calendar-empty"><strong>No notes for this day</strong><p>Add a note, appointment, or reminder.</p></div>';
  }
  function reminderSummary(row){
   if(!row.notify_email&&!row.notify_text)return '';
@@ -67,13 +84,31 @@
   $('calendarNotifyEmail').disabled=!capabilities.email_ready;
   $('calendarReminderHelp').textContent=$('calendarReminderPreset').value==='custom'?'Choose when to send the reminder, in Central time.':'Reminders count back from the note’s time, or 9:00 AM Central for an all-day note.';
  }
+ function statusControls(){
+  const status=$('calendarDisplayStatus').value;
+  $('calendarImportantOptions').classList.toggle('hidden',status!=='important');
+  $('calendarStatusHelp').classList.toggle('hidden',status!=='reminder');
+ }
+ function notificationSnapshot(){
+  const preset=$('calendarReminderPreset').value;
+  if(!preset)return '';
+  const email=$('calendarNotifyEmail').checked;
+  return JSON.stringify([preset,email,$('calendarNotifyText').checked,email?$('calendarEmailTo').value.trim():'',
+   preset==='custom'?$('calendarReminderDate').value+'T'+$('calendarReminderTime').value:'']);
+ }
  async function openEditor(row){
   if(loading||saving)return;
   if(!profile){await context();}
-  editId=row?.id||null;editRevision=row?.revision||null;$('calendarNoteForm').reset();
+  editId=row?.id||null;editRevision=row?.revision||null;editUpdatedAt=row?.updated_at||null;$('calendarNoteForm').reset();
   $('calendarEditorTitle').textContent=row?'Edit calendar note':'Add calendar note';
   $('calendarNoteDate').value=row?.note_date||selected;$('calendarNoteTime').value=row?.note_time?.slice(0,5)||'';
   $('calendarNoteTitle').value=row?.title||'';$('calendarNoteBody').value=row?.body||'';
+  $('calendarDisplayStatus').value=row?.display_status||'default';
+  $('calendarImportantColor').value=row?.important_color||'';
+  $('calendarImportantBold').checked=row?.important_bold||false;
+  $('calendarCompleted').checked=row?.completed||false;
+  $('calendarCompletionNotes').value=row?.completion_notes||'';
+  statusControls();
   $('calendarReminderPreset').value=row?.remind_at?(row.reminder_hours?String(row.reminder_hours):'custom'):'';
   $('calendarNotifyEmail').checked=row?row.notify_email:true;$('calendarNotifyText').checked=row?.notify_text||false;
   $('calendarEmailTo').value=row?.email_to||profile.email||'';
@@ -82,23 +117,32 @@
   $('calendarEditorMsg').textContent='';$('calendarBodyCount').textContent=`${$('calendarNoteBody').value.length} / 5000`;
   $('calendarProviderNotice').textContent='Checking reminder services…';
   $('calendarNoteDialog').showModal();
+  original=formSnapshot();originalNotification=notificationSnapshot();
   await loadCapabilities();
   $('calendarProviderNotice').innerHTML=capabilities.email_ready?`<span>Email reminders are available.</span>${capabilities.text_ready?'<span>Text destination: <strong>615-785-0344</strong> via Verizon Vtext. Verizon is retiring this service by March 31, 2027; delivery may fail sooner. Use email as a backup. <a href="https://www.verizon.com/support/vtext-vzwpix-shutdown/" target="_blank" rel="noopener">Verizon notice</a></span>':'<span>Text reminders are not configured for this company.</span>'}`:'Reminder service status could not be checked. Refresh Calendar and try again before adding a reminder.';
-  reminderControls();original=formSnapshot();$('calendarNoteTitle').focus();
+  reminderControls();$('calendarNoteTitle').focus();
  }
  async function save(event){
   event.preventDefault();if(saving)return;
   const preset=$('calendarReminderPreset').value,notifyEmail=!!preset&&$('calendarNotifyEmail').checked,notifyText=!!preset&&$('calendarNotifyText').checked;
   const title=$('calendarNoteTitle').value.trim(),date=$('calendarNoteDate').value;
   if(!title||!D.supported(date)){$('calendarEditorMsg').textContent='Enter a title and a date in 2026 or 2027.';return;}
-  if(preset&&(!notifyEmail&&!notifyText)){$('calendarEditorMsg').textContent='Choose Email, Verizon text, or both for the reminder.';return;}
-  if((notifyEmail&&!capabilities.email_ready)||(notifyText&&!capabilities.text_ready)){$('calendarEditorMsg').textContent='The selected reminder service is unavailable. Choose another option or save without a reminder.';return;}
+  const notificationChanged=!editId||notificationSnapshot()!==originalNotification;
+  if(notificationChanged&&preset&&(!notifyEmail&&!notifyText)){$('calendarEditorMsg').textContent='Choose Email, Verizon text, or both for the reminder.';return;}
+  if(notificationChanged&&((notifyEmail&&!capabilities.email_ready)||(notifyText&&!capabilities.text_ready))){$('calendarEditorMsg').textContent='The selected reminder service is unavailable. Choose another option or save without a reminder.';return;}
   const custom=preset==='custom';
   if(custom&&(!$('calendarReminderDate').value||!$('calendarReminderTime').value)){$('calendarEditorMsg').textContent='Choose a reminder date and time.';return;}
   try{
    saving=true;$('calendarSave').disabled=true;$('calendarEditorMsg').textContent='Saving…';
-   const payload={note_date:date,note_time:$('calendarNoteTime').value||null,title,body:$('calendarNoteBody').value,reminder_hours:preset&&!custom?Number(preset):null,remind_local:custom?`${$('calendarReminderDate').value}T${$('calendarReminderTime').value}:00`:null,notify_email:notifyEmail,notify_text:notifyText,email_to:notifyEmail?$('calendarEmailTo').value.trim():null};
-   const query=editId?s.from('admin_calendar_notes').update(payload).eq('id',editId).eq('company_id',profile.company_id).eq('revision',editRevision):s.from('admin_calendar_notes').insert({...payload,company_id:profile.company_id});
+   const status=$('calendarDisplayStatus').value;
+   const payload={note_date:date,note_time:$('calendarNoteTime').value||null,title,body:$('calendarNoteBody').value,
+    display_status:status,
+    important_color:status==='important'?$('calendarImportantColor').value||null:null,
+    important_bold:status==='important'&&$('calendarImportantBold').checked,
+    completed:$('calendarCompleted').checked,
+    completion_notes:$('calendarCompletionNotes').value};
+   if(notificationChanged)Object.assign(payload,{reminder_hours:preset&&!custom?Number(preset):null,remind_local:custom?`${$('calendarReminderDate').value}T${$('calendarReminderTime').value}:00`:null,notify_email:notifyEmail,notify_text:notifyText,email_to:notifyEmail?$('calendarEmailTo').value.trim():null});
+   const query=editId?s.from('admin_calendar_notes').update(payload).eq('id',editId).eq('company_id',profile.company_id).eq('revision',editRevision).eq('updated_at',editUpdatedAt):s.from('admin_calendar_notes').insert({...payload,company_id:profile.company_id});
    const {data,error}=await query.select('id').single();if(error)throw Error(error.code==='PGRST116'?'This note changed in another session. Close the editor and refresh Calendar before editing again.':error.message);
    if(!data)throw Error('The note could not be saved.');
    $('calendarNoteDialog').close();selected=date;year=Number(date.slice(0,4));month=Number(date.slice(5,7))-1;await load();message('Calendar note saved.');
@@ -115,6 +159,7 @@
  $('calendarUndo').onclick=async()=>{if(!lastDeleted)return;const {error}=await s.from('admin_calendar_notes').update({deleted_at:null}).eq('id',lastDeleted.id).eq('company_id',profile.company_id).eq('revision',lastDeleted.revision).select('id').single();if(error){message(`Unable to restore: ${error.message}`);return;}lastDeleted=null;$('calendarUndo').classList.add('hidden');await load();message('Calendar note restored. Future reminders were restored too.');};
  $('calendarNoteForm').onsubmit=save;$('calendarCloseEditor').onclick=$('calendarCancel').onclick=closeEditor;
  $('calendarNoteDialog').addEventListener('cancel',event=>{event.preventDefault();closeEditor();});
+ $('calendarDisplayStatus').onchange=statusControls;
  $('calendarReminderPreset').onchange=$('calendarNotifyEmail').onchange=reminderControls;
  $('calendarNoteBody').oninput=()=>{$('calendarBodyCount').textContent=`${$('calendarNoteBody').value.length} / 5000`;};
  $('calendarGrid').onclick=event=>{const button=event.target.closest('[data-calendar-day]');if(!button||button.disabled||loading)return;selected=button.dataset.calendarDay;const nextMonth=Number(selected.slice(5,7))-1;if(nextMonth!==month){month=nextMonth;year=Number(selected.slice(0,4));load();}else render();if(matchMedia('(max-width: 900px)').matches)$('calendarDayPanel').scrollIntoView({behavior:'smooth',block:'start'});};
@@ -128,5 +173,8 @@
  document.querySelector('nav [data-view="calendar"]').addEventListener('click',()=>{document.querySelectorAll('.view').forEach(el=>el.classList.toggle('hidden',el.id!=='calendar'));$('title').textContent='Calendar';load();});
  document.querySelectorAll('nav [data-view]').forEach(button=>button.addEventListener('click',()=>{if(button.dataset.view!=='calendar')$('calendar').classList.add('hidden');}));
  s.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT'){request++;rows=[];profile=null;lastDeleted=null;capabilities={};$('calendarNoteDialog').close();$('calendar').classList.add('hidden');$('calendarNoteForm').reset();$('calendarUndo').classList.add('hidden');render();}});
+ const refreshDate=()=>{if(!$('calendar').classList.contains('hidden')&&renderedDate!==today())render();};
+ document.addEventListener('visibilitychange',refreshDate);
+ setInterval(refreshDate,60000);
  render();
 })();
