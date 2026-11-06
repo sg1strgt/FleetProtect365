@@ -42,7 +42,7 @@
       if (String(company?.company_code).toUpperCase() !== "WFS") {
         clear();
         await client.auth.signOut({scope:"local"});
-        status.textContent = "FedEx Locations is available only to Wade Freight drivers.";
+        status.textContent = "Your account does not have access to FedEx Locations.";
         return;
       }
       const rows = [];
