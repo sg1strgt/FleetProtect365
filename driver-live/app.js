@@ -9,7 +9,9 @@
     !cfg.SUPABASE_ANON_KEY.includes("PASTE_");
 
   const supabaseClient = hasSupabaseConfig
-    ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY)
+    ? window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+      })
     : null;
   window.FP365_DRIVER_CLIENT = supabaseClient;
 
@@ -654,7 +656,6 @@
         <button id="entriesBtn" class="choice"><strong>View Entries</strong><span>Open and review your submitted records</span></button>
         <button id="incidentBtn" class="choice incident-choice"><strong>Accident / Incident Report</strong><span>Document an accident or incident immediately</span></button>
         <button id="endBtn" class="choice"><strong>End of Shift</strong><span>Complete the checklist and finish your shift</span></button>
-        <button id="logoutBtn" class="danger">Log Out</button>
       </section>`;
 
     document.getElementById("newBtn").onclick = () => {
@@ -670,12 +671,11 @@
     document.getElementById("entriesBtn").onclick = () => navigate("entries");
     document.getElementById("incidentBtn").onclick = beginIncidentReport;
     document.getElementById("endBtn").onclick = () => navigate("endShift");
-    document.getElementById("logoutBtn").onclick = logoutDriver;
   }
 
   async function logoutDriver() {
     try {
-      if (supabaseClient) await supabaseClient.auth.signOut();
+      if (supabaseClient) await supabaseClient.auth.signOut({ scope: "local" });
     } catch (error) {
       console.warn("Supabase sign-out failed; clearing the local session.", error);
     } finally {
@@ -1437,14 +1437,12 @@ async function renderEndShift() {
           const confirmedAt=new Date().toISOString();
           state.entries.filter(entry=>ids.includes(entry.id)).forEach(entry=>{entry.end_shift_email_confirmed_at=confirmedAt;});
           await dbSet('entries',state.entries);
+          await logoutDriver();
           showModal('Report emailed',`<p>Your End-of-Shift report containing ${ids.length} inspection${ids.length===1?'':'s'} ${data.already_completed?'was already emailed':'was emailed successfully'}.</p><p>Have a good night.</p>`);
-          await supabaseClient.auth.signOut();
-          localStorage.removeItem('fp365_user'); state.user=null; state.history=[]; state.screen='login'; setTimeout(render,500);
         } catch(error) {
           button.disabled=false;refresh.disabled=false;button.textContent='Email Report and Complete End of Shift';
           document.querySelectorAll('.shift-inspection,.shift').forEach(input=>input.disabled=false);
-          showModal('End of Shift could not be confirmed',`<p>${esc(error.message || String(error))}</p><p>If delivery was interrupted, retry the same selection. Use Refresh Inspections if the list has changed.</p><button type="button" id="endShiftErrorLogout" class="danger">Log Out Now</button>`);
-          document.getElementById('endShiftErrorLogout').onclick=logoutDriver;
+          showModal('End of Shift could not be confirmed',`<p>${esc(error.message || String(error))}</p><p>If delivery was interrupted, retry the same selection. Use Refresh Inspections if the list has changed.</p>`);
         }
       };
     } catch(error) {
@@ -1517,12 +1515,24 @@ async function renderEndShift() {
     localStorage.removeItem("fp365_entries");
     await removeConfirmedEntriesAfterRetentionPeriod();
     if (supabaseClient) {
-      const { data } = await supabaseClient.auth.getSession();
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) throw error;
       if (!data.session) {
         state.user = null;
         localStorage.removeItem("fp365_user");
         state.screen = "login";
       } else {
+        if (!state.user || state.user.id !== data.session.user.id) {
+          const { data: profile, error: profileError } = await supabaseClient
+            .from("employee_profiles")
+            .select("id,company_id,full_name,display_name,employee_id,email,role,status,password_reset_required")
+            .eq("id", data.session.user.id)
+            .single();
+          if (profileError) throw profileError;
+          state.user = profile;
+          writeJson("fp365_user", profile);
+        }
+        state.screen = state.user.password_reset_required ? "passwordChange" : "home";
         await Promise.all([loadActiveTrucks(), loadCompanyContent(), loadCompanyPreferences()]);
         await removeConfirmedEntriesAfterRetentionPeriod();
         await syncPendingInspections();
