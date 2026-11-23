@@ -20,7 +20,7 @@
     "8739135": "Steven Arbucci"
   };
 
-  const equipment = {
+  const legacyEquipment = {
     "53": {
       label: "53’ Trailer",
       photos: [
@@ -64,6 +64,61 @@
     },
     bobtail: { label: "Bobtail", photos: [] }
   };
+
+  const equipment = {
+  "53": {
+    "label": "53\u2019 Trailer",
+    "photos": [
+      "Air, brake, and electrical lines connected",
+      "Fifth wheel plate connected",
+      "Landing gear raised",
+      "Rear door and seal secure"
+    ]
+  },
+  "container": {
+    "label": "Container",
+    "photos": [
+      "Air, brake, and electrical lines connected",
+      "Fifth wheel plate connected",
+      "Landing gear raised",
+      "Rear door and seal secure"
+    ]
+  },
+  "doubles": {
+    "label": "Doubles",
+    "photos": [
+      "Air, brake, and electrical lines connected - tractor",
+      "Fifth wheel plate connected - trailer 1",
+      "Landing gear raised - trailer 1",
+      "Rear door and seal secure - trailer 1",
+      "Air, brake, and electrical lines connected - trailer 1",
+      "Pintle hook connected and closed - trailer 1",
+      "Safety chains connected - trailer 1",
+      "Air, brake, and electrical lines connected - trailer 2",
+      "Fifth wheel plate connected - trailer 2",
+      "Landing gear raised - trailer 2",
+      "Rear door and seal secure - trailer 2"
+    ]
+  },
+  "pup": {
+    "label": "Single Pup",
+    "photos": [
+      "Air, brake, and electrical lines connected",
+      "Fifth wheel plate connected",
+      "Landing gear raised",
+      "Rear door and seal secure"
+    ]
+  },
+  "bobtail": {
+    "label": "Bobtail",
+    "photos": []
+  }
+};
+
+  // Older drafts and submissions keep the labels that belong to their indexed photos.
+  function requiredPhotoLabels(entry) {
+    return entry.photo_labels || legacyEquipment[entry.type]?.photos || [];
+  }
 
   const state = {
     screen: "login",
@@ -273,7 +328,7 @@
   }
 
   function inspectionPhotoRecords(entry) {
-    const requiredLabels = equipment[entry.type]?.photos || [];
+    const requiredLabels = requiredPhotoLabels(entry);
     const required = requiredLabels.flatMap((label, index) => {
       const photo = entry.photos?.[index];
       return photo?.data_url ? [{
@@ -731,6 +786,7 @@
           employee_id: state.user?.employee_id || "",
           driver_name: state.user?.full_name || DRIVER_NAMES[state.user?.employee_id] || "",
           type,
+          photo_labels: [...equipment[type].photos],
           created_at: new Date().toISOString(),
           truck: "",
           trailer1: "",
@@ -835,7 +891,7 @@
     if (!state.current) return goHome();
     header("Inspection Photos");
     const c = state.current;
-    const photoList = equipment[c.type].photos;
+    const photoList = requiredPhotoLabels(c);
     main.innerHTML = `
       <section class="card">
         <h2>${photoList.length ? "Required photos" : "Inspection photos"}</h2>
@@ -965,7 +1021,7 @@
   function validatePhotos() {
     const c = state.current;
     const missing = [];
-    if (!c.bypass) equipment[c.type].photos.forEach((label,i) => { if (!c.photos[i]) missing.push(label); });
+    if (!c.bypass) requiredPhotoLabels(c).forEach((label,i) => { if (!c.photos[i]) missing.push(label); });
     else if (!c.bypass_reason) missing.push("Bypass explanation");
     return missing;
   }
@@ -1094,7 +1150,7 @@
     const e = state.selectedEntry;
     if (!e) return navigate("entries", false);
     header("Entry Details");
-    const photoItems = equipment[e.type]?.photos || [];
+    const photoItems = requiredPhotoLabels(e);
     main.innerHTML = `
       <section class="card">
         <h2>${esc(equipment[e.type]?.label || e.type)}</h2>

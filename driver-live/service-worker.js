@@ -1,4 +1,4 @@
-const CACHE_NAME = "fp365-driver-v1.11.9-persistent-session-1";
+const CACHE_NAME = "fp365-driver-v1.11.10-photo-order-1";
 
 const APP_FILES = [
   "./",
